@@ -1,0 +1,20 @@
+{
+  "name": "Copiggy",
+  "identifier": "dev.copiggy",
+  "version": "0.1.0",
+  "main": ".",
+  "out": "build",
+  "icon": "resources/brand/app-icon.png",
+  "macos": {
+    "icon": "resources/brand/Copiggy.icon",
+    "minimumSystemVersion": "13.0",
+    "signingIdentity": "-",
+    "infoPlist": {
+      "CFBundleVersion": "2",
+      "LSUIElement": true,
+      "CFBundleDevelopmentRegion": "en",
+      "CFBundleLocalizations": ["en", "zh-Hans", "zh-Hant", "ja"],
+      "LSApplicationCategoryType": "public.app-category.utilities"
+    }
+  }
+}

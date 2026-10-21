@@ -1,0 +1,4 @@
+.cache/
+build/
+.mygo/
+.DS_Store

@@ -1,0 +1,26 @@
+{
+  "text": {
+    "en": "text",
+    "zh-Hans": "文本 文字",
+    "zh-Hant": "文字 文本",
+    "ja": "テキスト 文字"
+  },
+  "json": {
+    "en": "json text",
+    "zh-Hans": "文本 代码",
+    "zh-Hant": "文字 程式碼",
+    "ja": "テキスト コード"
+  },
+  "link": {
+    "en": "link url",
+    "zh-Hans": "链接 网址",
+    "zh-Hant": "連結 網址",
+    "ja": "リンク アドレス"
+  },
+  "image": {
+    "en": "image png",
+    "zh-Hans": "图片 图像",
+    "zh-Hant": "圖片 影像",
+    "ja": "画像 写真"
+  }
+}
