@@ -7,8 +7,6 @@ import (
 	"image"
 	"image/color"
 	"image/png"
-	"os"
-	"path/filepath"
 	"slices"
 	"testing"
 	"time"
@@ -163,20 +161,20 @@ func TestNativeLinkFooterAlignsWithOtherCards(t *testing.T) {
 	}
 	s.filter()
 	tt := ui.NewTester(s.nativeView, 1140, nativeTrayHeight)
-	footer, ok := tt.Find("HTTPS")
+	footer, ok := tt.Find("zustand.docs.pmnd.rs")
 	if !ok {
 		t.Fatal("link footer missing")
 	}
-	original, ok := tt.Find("Original")
+	original, ok := tt.Find("3 properties")
 	if !ok {
 		t.Fatal("JSON footer missing")
 	}
 	if footer.Y != original.Y || footer.H != original.H {
 		t.Fatalf("link footer does not align with JSON footer: link=%+v json=%+v", footer, original)
 	}
-	domain, ok := tt.Find("zustand.docs.pmnd.rs")
-	if !ok || domain.Y+domain.H > footer.Y-4 {
-		t.Fatalf("link domain crowds its footer: domain=%+v footer=%+v", domain, footer)
+	title, ok := tt.Find(nativeLinkCardTitle(link, ""))
+	if !ok || title.Y+title.H > footer.Y-4 {
+		t.Fatalf("link title crowds its footer: title=%+v footer=%+v", title, footer)
 	}
 	pin, ok := tt.Find("Unpin")
 	card, cardFound := tt.Find(s.nativeCardLabel(link))
@@ -300,34 +298,6 @@ func TestNativeSearchWidthAnimatesAndRespectsReducedMotion(t *testing.T) {
 		t.Fatal("search ignored reduce motion")
 	}
 }
-func TestNativePanelVisualCapture(t *testing.T) {
-	directory := os.Getenv("COPIGGY_NATIVE_SCREENSHOTS")
-	if directory == "" {
-		t.Skip("optional native content renderer capture; AppKit material is not rendered headlessly")
-	}
-	s := nativeViewFixture(t)
-	tray := ui.NewTester(s.nativeView, 1140, nativeTrayHeight)
-	capture := func(view *ui.Tester, name string) {
-		t.Helper()
-		f, err := os.Create(filepath.Join(directory, name))
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer f.Close()
-		if err = png.Encode(f, view.Image()); err != nil {
-			t.Fatal(err)
-		}
-	}
-	capture(tray, "native-light-default.png")
-	s.preview = true
-	preview := ui.NewTester(s.nativePopoverView, 520, 360)
-	capture(preview, "native-light-preview-content.png")
-	s.viewState.Dark = true
-	tray.Frame()
-	preview.Frame()
-	capture(tray, "native-dark-default.png")
-	capture(preview, "native-dark-preview-content.png")
-}
 
 func TestNativeTrayStaysTransparentAndKeepsHeaderDuringPreview(t *testing.T) {
 	for _, dark := range []bool{false, true} {
@@ -410,7 +380,7 @@ func TestNativeHoverStaysQuietWithoutTooltip(t *testing.T) {
 		before := tt.Texts()
 		tt.Move(search.X+search.W/2, search.Y+search.H/2)
 		tt.Advance(time.Second)
-		if s.viewState.TrayHint != "搜索 · ⌘F" || s.trayStatus.title(time.Now()) != "" {
+		if _, found := tt.Find("搜索 · ⌘F"); !found || s.trayStatus.title(time.Now()) != "" {
 			t.Fatal("hover should retain its accessibility label without a menu-bar hint")
 		}
 		if !slices.Equal(before, tt.Texts()) {
@@ -420,6 +390,13 @@ func TestNativeHoverStaysQuietWithoutTooltip(t *testing.T) {
 		tt.Frame()
 		if s.trayStatus.title(time.Now()) != "" {
 			t.Fatal("leaving a control produced a menu-bar hint")
+		}
+		s.reportNativeStatus(s.tr("Paste blocked"))
+		until := s.trayStatus.eventUntil
+		tt.Move(search.X+search.W/2, search.Y+search.H/2)
+		tt.Frame()
+		if s.trayStatus.title(time.Now()) != s.tr("Paste blocked") || s.trayStatus.eventUntil != until {
+			t.Fatal("hover replaced or renewed important menu-bar feedback")
 		}
 	}
 }

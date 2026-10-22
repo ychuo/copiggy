@@ -34,6 +34,7 @@ type Config struct {
 	Dispatch        func(func() error, func(error))
 	SavePreferences func(settings.Preferences) error
 	Copy            func(context.Context, string, bool) (clipmodel.Item, error)
+	CopyVariant     func(context.Context, string, clipmodel.CopyFormat) (clipmodel.Item, error)
 	SetGuard        func(bool) error
 	SetMonitoring   func(bool)
 	Refresh         func()
@@ -65,6 +66,7 @@ func (s *application) Changed() {
 	if s.quitting {
 		return
 	}
+	s.pruneUnavailableNativeContentAssets()
 	selected, hadSelection := s.selected()
 	if hadSelection {
 		if _, exists := s.store.Record(selected.ID); !exists {
@@ -111,13 +113,16 @@ func (s *application) Event(event guard.Event) {
 	s.reportNativeEvent(event)
 	s.publish()
 }
-func (s *application) BeginQuit() { s.quitting = true; s.cancelNativeDraft() }
-func (s *application) Close() {
+func (s *application) BeginQuit() {
 	s.quitting = true
+	s.cancelNativeDraft()
+	s.cancelNativeContentAssets()
+}
+func (s *application) Close() {
+	s.BeginQuit()
 	if s.viewState != nil && s.viewState.LinkIcons != nil {
 		s.viewState.LinkIcons.Clear()
 	}
-	s.cancelNativeDraft()
 	s.destroyNativeLinkPreview()
 	if s.popover != nil {
 		s.popover.Destroy()
@@ -164,6 +169,8 @@ type application struct {
 	viewState                   *nativePanelState
 	popover                     *mygo.Window
 	linkPreview                 *nativeLinkPreviewState
+	contentAssets               *nativeContentAssetsState
+	semanticPreview             nativeSemanticPreviewState
 	popoverAnchor               mygo.Rectangle
 	popoverWidth, popoverHeight int
 	popoverAppearance           *macos.PopoverAppearance
@@ -247,10 +254,9 @@ func (s *application) hide() {
 	}
 	s.hiding = true
 	defer func() { s.hiding = false }()
-	s.reportNativeHint("")
 	s.focusGeneration++
-	s.uiGeneration++
 	s.cancelNativeDraft()
+	s.cancelNativeContentAssets()
 	if s.viewState != nil {
 		s.viewState.EmptyAnimationStart = time.Time{}
 		s.viewState.PinAnimationStart = time.Time{}
@@ -260,8 +266,12 @@ func (s *application) hide() {
 	if s.popover != nil {
 		s.popover.Hide()
 	}
-	s.panel.Hide()
-	s.native.SetPanelVisible(false)
+	if s.panel != nil {
+		s.panel.Hide()
+	}
+	if s.native != nil {
+		s.native.SetPanelVisible(false)
+	}
 }
 
 func (s *application) toggle() {
@@ -307,22 +317,36 @@ func (s *application) choose() {
 	if s.quitting {
 		return
 	}
-	if s.commandBusy || s.config.Copy == nil {
+	if s.commandBusy {
 		return
 	}
 	id, isDraft := "", false
+	var format clipmodel.CopyFormat
 	if s.draft != nil {
 		id, isDraft = s.draft.ID, true
 	} else if item, ok := s.selected(); ok {
 		id = item.ID
+		if s.preview && s.semanticPreview.ItemID == id {
+			format = s.semanticPreview.CopyFormat
+		}
 	} else {
+		return
+	}
+	if format != "" && s.config.CopyVariant == nil || format == "" && s.config.Copy == nil {
 		return
 	}
 	generation := s.uiGeneration
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
 	s.commandBusy = true
-	s.perform(func() error { _, err := s.config.Copy(ctx, id, isDraft); return err }, func(err error) {
+	s.perform(func() error {
+		if format != "" {
+			_, err := s.config.CopyVariant(ctx, id, format)
+			return err
+		}
+		_, err := s.config.Copy(ctx, id, isDraft)
+		return err
+	}, func(err error) {
 		s.commandBusy = false
 		cancel()
 		if generation != s.uiGeneration {

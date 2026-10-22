@@ -1,7 +1,6 @@
 package clipmodel
 
 import (
-	"context"
 	"crypto/sha256"
 	"reflect"
 	"testing"
@@ -113,23 +112,16 @@ func TestDuplicateCaptureRequiresSameAllowedAppSet(t *testing.T) {
 	}
 }
 
-func TestDuplicateEnhancedCopyKeepsLineageAndSource(t *testing.T) {
+func TestDuplicateLegacyEnhancedCopyKeepsLineageAndSource(t *testing.T) {
 	store := NewStore(10)
 	source, _ := store.CaptureProtectedContent(Content{Text: "hello   \n", SourceAppID: "com.editor"}, "Editor", []string{"com.editor"})
-	draft, err := store.Enhance(context.Background(), source.ID, CleanWhitespace)
-	if err != nil {
+	legacy := Item{ID: "item-2", Type: TypeText, Text: "hello", SourceApp: source.SourceApp, SourceAppID: source.SourceAppID, AllowedApps: source.AllowedApps, ParentID: source.ID, CreatedAt: time.Now()}
+	if err := store.RestoreItem(legacy, Content{Text: legacy.Text}); err != nil {
 		t.Fatal(err)
-	}
-	accepted, err := store.Accept(draft.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if draft.SourceAppID != source.SourceAppID || accepted.SourceAppID != source.SourceAppID {
-		t.Fatal("enhancement lost the original source application identity")
 	}
 	store.Capture("another record", "Notes", false)
-	copy, _ := store.CaptureProtectedContent(Content{Text: accepted.Text, SourceAppID: "com.another"}, "Another App", accepted.AllowedApps)
-	if copy.ID != accepted.ID || copy.ParentID != source.ID || copy.SourceApp != source.SourceApp || copy.SourceAppID != source.SourceAppID {
+	copy, _ := store.CaptureProtectedContent(Content{Text: legacy.Text, SourceAppID: "com.another"}, "Another App", legacy.AllowedApps)
+	if copy.ID != legacy.ID || copy.ParentID != source.ID || copy.SourceApp != source.SourceApp || copy.SourceAppID != source.SourceAppID {
 		t.Fatalf("recopying enhanced content lost its original lineage: %+v", copy)
 	}
 	if len(store.Items()) != 3 || store.Items()[2].Text != source.Text {

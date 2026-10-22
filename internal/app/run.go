@@ -97,7 +97,7 @@ func Run() error {
 				bridge.RequestAccessibility()
 				return bridge.StartGuard()
 			},
-			Copy: r.copy,
+			Copy: r.copy, CopyVariant: r.copyVariant,
 		})
 		if historyErr != nil {
 			fallback := "Could not load history"
@@ -157,12 +157,18 @@ func (r *runtime) copy(ctx context.Context, id string, draft bool) (clipmodel.It
 	} else {
 		item, revision, err = service.Item(ctx, id)
 	}
-	if err == nil || (item.ID != "" && errors.Is(err, clipboard.ErrHistorySave)) {
+	if err == nil {
 		r.ownRevision, r.lastRevision = revision, revision
 	}
-	if errors.Is(err, clipboard.ErrHistorySave) {
-		r.reportHistoryError(err)
-		return item, nil
+	return item, err
+}
+
+func (r *runtime) copyVariant(ctx context.Context, id string, format clipmodel.CopyFormat) (clipmodel.Item, error) {
+	service := clipboard.Copy{History: r.history, Port: r.platform}
+	item, revision, err := service.Variant(ctx, id, format)
+	if err == nil {
+		// Keep derived writes out of capture just like a restored history item.
+		r.ownRevision, r.lastRevision = revision, revision
 	}
 	return item, err
 }

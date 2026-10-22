@@ -49,6 +49,7 @@ func (s *application) relativeTime(t time.Time) string {
 }
 func (s *application) cancelNativeDraft() {
 	s.uiGeneration++
+	s.semanticPreview = nativeSemanticPreviewState{}
 	if s.cancel != nil {
 		s.cancel()
 		s.cancel = nil
@@ -61,7 +62,6 @@ func (s *application) cancelNativeDraft() {
 	}
 	if s.viewState != nil {
 		s.viewState.Original = false
-		s.viewState.Zoom = false
 	}
 }
 func (s *application) selectNative(index int, keepPreview bool) {
@@ -75,7 +75,6 @@ func (s *application) selectNative(index int, keepPreview bool) {
 	s.publish()
 }
 func (s *application) closeNativePreview() {
-	s.reportNativeHint("")
 	s.cancelNativeDraft()
 	s.preview = false
 	s.message = ""
@@ -89,7 +88,7 @@ func (s *application) closeNativePreview() {
 	s.publish()
 }
 func (s *application) chooseNative(original bool) {
-	if s.busy {
+	if s.busy || s.commandBusy {
 		return
 	}
 	if original {
@@ -135,9 +134,6 @@ func (s *application) toggleNativeMonitoring() {
 	})
 	s.publish()
 }
-func (s *application) switchNativeTheme() {
-	s.applyNativeTheme(!s.nativeState().Dark)
-}
 func (s *application) applyNativeTheme(dark bool) {
 	if s.quitting {
 		return
@@ -155,7 +151,6 @@ func (s *application) applyNativeTheme(dark bool) {
 		}
 		s.publish()
 	})
-	s.reportNativeHint("")
 	s.reportNativeStatus(s.tr(status))
 	s.publish()
 }

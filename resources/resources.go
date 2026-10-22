@@ -14,6 +14,12 @@ var Icons embed.FS
 //go:embed locales/search_terms.json
 var SearchTerms []byte
 
+// ContentLabels contains localized whole-value prefixes used by conservative
+// content recognition, independently of the selected interface language.
+//
+//go:embed locales/content_labels.json
+var ContentLabels []byte
+
 // Brand contains Copiggy's application icon and native empty-state artwork.
 //
 //go:embed brand/*.png

@@ -14,23 +14,6 @@ import (
 	"github.com/egoist/mygo"
 )
 
-func TestTrayHoverHintsStaySilent(t *testing.T) {
-	for _, language := range supportedLanguages {
-		s := &application{language: language.Code}
-		s.reportNativeHint(s.tr("Search · ⌘F"))
-		if s.trayStatus.title(time.Now()) != "" {
-			t.Fatal("hover changed the menu-bar title")
-		}
-		s.reportNativeStatus(s.tr("Paste blocked"))
-		until := s.trayStatus.eventUntil
-		s.reportNativeHint(s.tr("Format JSON"))
-		s.reportNativeHint("")
-		if s.trayStatus.title(time.Now()) != s.tr("Paste blocked") || s.trayStatus.eventUntil != until {
-			t.Fatal("hover changed an important event or its expiry")
-		}
-	}
-}
-
 func TestTrayImportantEventsOwnTheirExpiry(t *testing.T) {
 	var state trayStatusState
 	now := time.Unix(100, 0)

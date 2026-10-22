@@ -11,6 +11,83 @@ var supportedLanguages = []struct{ Code, Name string }{
 // Catalog keys and the first column are concise English product copy.
 // The remaining columns follow supportedLanguages; native control IDs stay separate.
 var translations = map[string][4]string{
+	"Email":                  {"Email", "邮箱", "電子郵件", "メール"},
+	"Email address":          {"Email address", "邮箱地址", "電子郵件地址", "メールアドレス"},
+	"Phone":                  {"Phone", "电话", "電話", "電話番号"},
+	"Coordinates":            {"Coordinates", "经纬度", "經緯度", "座標"},
+	"Date":                   {"Date", "日期", "日期", "日付"},
+	"Timestamp":              {"Timestamp", "时间戳", "時間戳", "タイムスタンプ"},
+	"Color":                  {"Color", "颜色", "顏色", "色"},
+	"File path":              {"File path", "文件路径", "檔案路徑", "ファイルパス"},
+	"Verification code":      {"Verification code", "验证码", "驗證碼", "認証コード"},
+	"Token":                  {"Token", "令牌", "權杖", "トークン"},
+	"Private key":            {"Private key", "私钥", "私鑰", "秘密鍵"},
+	"JSON":                   {"JSON", "JSON", "JSON", "JSON"},
+	"Plain text":             {"Plain text", "纯文本", "純文字", "プレーンテキスト"},
+	"Image":                  {"Image", "图片", "圖片", "画像"},
+	"International":          {"International", "国际号码", "國際號碼", "国際番号"},
+	"%d digits":              {"%d digits", "%d 位", "%d 碼", "%d 桁"},
+	"%d properties":          {"%d properties", "%d 个属性", "%d 個屬性", "%d 項目"},
+	"Hidden content":         {"Hidden content", "内容已隐藏", "內容已隱藏", "非表示の内容"},
+	"Mail":                   {"Mail", "邮件", "郵件", "メール"},
+	"Call":                   {"Call", "拨号", "撥號", "発信"},
+	"Maps":                   {"Maps", "地图", "地圖", "マップ"},
+	"Calendar":               {"Calendar", "日历", "日曆", "カレンダー"},
+	"Finder":                 {"Finder", "访达", "Finder", "Finder"},
+	"Reveal":                 {"Reveal", "显示", "顯示", "表示"},
+	"Hide":                   {"Hide", "隐藏", "隱藏", "隠す"},
+	"HEX":                    {"HEX", "HEX", "HEX", "HEX"},
+	"RGB":                    {"RGB", "RGB", "RGB", "RGB"},
+	"HSL":                    {"HSL", "HSL", "HSL", "HSL"},
+	"Local time":             {"Local time", "本地时间", "當地時間", "ローカル時刻"},
+	"UTC":                    {"UTC", "UTC", "UTC", "UTC"},
+	"Seconds":                {"Seconds", "秒", "秒", "秒"},
+	"Milliseconds":           {"Milliseconds", "毫秒", "毫秒", "ミリ秒"},
+	"Original number":        {"Original number", "原始号码", "原始號碼", "元の番号"},
+	"Dialing number":         {"Dialing number", "拨号号码", "撥號號碼", "発信番号"},
+	"Zoom in":                {"Zoom in", "放大", "放大", "拡大"},
+	"Zoom out":               {"Zoom out", "缩小", "縮小", "縮小"},
+	"Fit":                    {"Fit", "适应窗口", "符合視窗", "全体表示"},
+	"Map preview":            {"Map preview", "地图预览", "地圖預覽", "地図プレビュー"},
+	"Map unavailable":        {"Map unavailable", "地图不可用", "地圖無法使用", "地図を表示できません"},
+	"Loading map…":           {"Loading map…", "正在加载地图…", "正在載入地圖…", "地図を読み込み中…"},
+	"Latitude":               {"Latitude", "纬度", "緯度", "緯度"},
+	"Longitude":              {"Longitude", "经度", "經度", "経度"},
+	"All day":                {"All day", "全天", "全天", "終日"},
+	"January 2006":           {"January 2006", "2006 年 1 月", "2006 年 1 月", "2006年1月"},
+	"Jan 2, 2006":            {"Jan 2, 2006", "2006 年 1 月 2 日", "2006 年 1 月 2 日", "2006年1月2日"},
+	"Jan 2":                  {"Jan 2", "1 月 2 日", "1 月 2 日", "1月2日"},
+	"Could not open content": {"Could not open content", "无法打开内容", "無法開啟內容", "内容を開けません"},
+	"File unavailable":       {"File unavailable", "文件不可用", "檔案無法使用", "ファイルを利用できません"},
+	"Protected location":     {"Protected location", "受保护的位置", "受保護的位置", "保護された位置情報"},
+	"Preview formats leave the original unchanged": {"Preview formats leave the original unchanged", "切换预览格式不会修改原文", "切換預覽格式不會修改原文", "表示形式を変えても元の内容は変わりません"},
+	"API key":          {"API key", "API 密钥", "API 金鑰", "API キー"},
+	"OTP":              {"OTP", "验证码", "驗證碼", "認証コード"},
+	"JWT":              {"JWT", "JWT", "JWT", "JWT"},
+	"PEM":              {"PEM", "PEM", "PEM", "PEM"},
+	"OpenSSH":          {"OpenSSH", "OpenSSH", "OpenSSH", "OpenSSH"},
+	"GitHub":           {"GitHub", "GitHub", "GitHub", "GitHub"},
+	"Slack":            {"Slack", "Slack", "Slack", "Slack"},
+	"AWS":              {"AWS", "AWS", "AWS", "AWS"},
+	"January":          {"January", "1 月", "1 月", "1月"},
+	"February":         {"February", "2 月", "2 月", "2月"},
+	"March":            {"March", "3 月", "3 月", "3月"},
+	"April":            {"April", "4 月", "4 月", "4月"},
+	"May":              {"May", "5 月", "5 月", "5月"},
+	"June":             {"June", "6 月", "6 月", "6月"},
+	"July":             {"July", "7 月", "7 月", "7月"},
+	"August":           {"August", "8 月", "8 月", "8月"},
+	"September":        {"September", "9 月", "9 月", "9月"},
+	"October":          {"October", "10 月", "10 月", "10月"},
+	"November":         {"November", "11 月", "11 月", "11月"},
+	"December":         {"December", "12 月", "12 月", "12月"},
+	"Sunday":           {"Sunday", "周日", "週日", "日曜日"},
+	"Monday":           {"Monday", "周一", "週一", "月曜日"},
+	"Tuesday":          {"Tuesday", "周二", "週二", "火曜日"},
+	"Wednesday":        {"Wednesday", "周三", "週三", "水曜日"},
+	"Thursday":         {"Thursday", "周四", "週四", "木曜日"},
+	"Friday":           {"Friday", "周五", "週五", "金曜日"},
+	"Saturday":         {"Saturday", "周六", "週六", "土曜日"},
 	"Could not copy":   {"Could not copy", "复制失败", "複製失敗", "コピーできませんでした"},
 	"Web page":         {"Web page", "网页", "網頁", "Web ページ"},
 	"Loading page…":    {"Loading page…", "正在加载网页…", "正在載入網頁…", "ページを読み込み中…"},
@@ -75,6 +152,7 @@ var translations = map[string][4]string{
 	"Formatted draft":                           {"Formatted draft", "格式化草稿", "格式化草稿", "整形結果"},
 	"Inactive":                                  {"Inactive", "未生效", "未生效", "無効"},
 	"Cancel processing":                         {"Cancel processing", "取消处理", "取消處理", "処理をキャンセル"},
+	"Format":                                    {"Format", "格式化", "格式化", "整形"},
 	"Format JSON":                               {"Format JSON", "格式化 JSON", "格式化 JSON", "JSON を整形"},
 	"Clean whitespace":                          {"Clean whitespace", "清理空白", "清除空白", "空白を整理"},
 	"Original / result":                         {"Original / result", "原文 / 结果", "原文 / 結果", "元の内容／結果"},
@@ -162,6 +240,10 @@ func (s *application) tr(key string, args ...any) string {
 			text = "%d item"
 		} else if key == "%d characters" {
 			text = "%d character"
+		} else if key == "%d digits" {
+			text = "%d digit"
+		} else if key == "%d properties" {
+			text = "%d property"
 		}
 	}
 	if len(args) > 0 {
@@ -186,7 +268,6 @@ func (s *application) setLanguage(code string) {
 		}
 		s.publish()
 	})
-	s.reportNativeHint("")
 	s.reportNativeStatus(s.tr(status))
 	s.publish()
 }

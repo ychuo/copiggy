@@ -29,6 +29,7 @@ var glassNative struct {
 	initRect        func(uintptr, objc.SEL, glassRect) uintptr
 	getFloat        func(uintptr, objc.SEL) float64
 	setFloat        func(uintptr, objc.SEL, float64)
+	colorWhite      func(uintptr, objc.SEL, float64, float64) uintptr
 	aquaName        uintptr
 	darkName        uintptr
 	continuousCurve uintptr
@@ -63,6 +64,7 @@ func initGlassNative() error {
 		purego.RegisterFunc(&g.initRect, nativeobjc.MessageSend())
 		purego.RegisterFunc(&g.getFloat, nativeobjc.MessageSend())
 		purego.RegisterFunc(&g.setFloat, nativeobjc.MessageSend())
+		purego.RegisterFunc(&g.colorWhite, nativeobjc.MessageSend())
 		for name, destination := range map[string]*uintptr{
 			"NSAppearanceNameAqua":     &g.aquaName,
 			"NSAppearanceNameDarkAqua": &g.darkName,

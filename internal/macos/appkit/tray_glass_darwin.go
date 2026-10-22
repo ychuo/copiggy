@@ -17,6 +17,7 @@ type trayGlassAttachment struct {
 	parent, surface, effect uintptr
 	surfaceAutoresizing     uintptr
 	material                string
+	tintSet, tintDark       bool
 
 	parentWantsLayer, parentMasksToBounds, parentCornerCurve uintptr
 	parentCornerRadius                                       float64
@@ -163,6 +164,7 @@ func setTrayGlass(window uintptr, dark bool, radius float64) (string, error) {
 	contentFrame := glassRect{Size: frame.Size}
 	setGlassViewFrame(attachment.surface, contentFrame)
 	if attachment.material == "liquid-glass" {
+		updateTrayGlassTint(attachment, dark)
 		setGlassCornerRadius(attachment.effect, radius)
 	} else {
 		setGlassCornerRadius(nativeobjc.Send(attachment.effect, objc.RegisterName("layer")), radius)
@@ -171,6 +173,26 @@ func setTrayGlass(window uintptr, dark bool, radius float64) (string, error) {
 	nativeobjc.Send(window, objc.RegisterName("setOpaque:"), 0)
 	nativeobjc.Send(window, objc.RegisterName("setBackgroundColor:"), nativeobjc.Send(uintptr(objc.GetClass("NSColor")), objc.RegisterName("clearColor")))
 	return attachment.material, nil
+}
+
+// A large Regular glass surface becomes very pale over white windows. Give
+// light mode a restrained neutral tint through the material's own public API;
+// do not cover it with a painted overlay or replace its adaptive glass style.
+// Dark mode keeps the system's untinted glass. Resizing and ordinary frames
+// must not allocate colors or reset an unchanged native effect property.
+func updateTrayGlassTint(attachment *trayGlassAttachment, dark bool) {
+	if attachment.tintSet && attachment.tintDark == dark {
+		return
+	}
+	nativeobjc.Send(attachment.effect, objc.RegisterName("setTintColor:"), trayGlassTintColor(dark))
+	attachment.tintSet, attachment.tintDark = true, dark
+}
+
+func trayGlassTintColor(dark bool) uintptr {
+	if dark {
+		return 0
+	}
+	return glassNative.colorWhite(uintptr(objc.GetClass("NSColor")), objc.RegisterName("colorWithWhite:alpha:"), .55, .14)
 }
 
 // The material's cornerRadius shapes the glass, but the window's root NSView

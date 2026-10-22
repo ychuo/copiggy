@@ -1,9 +1,6 @@
 package nativeui
 
 import (
-	"fmt"
-	"unicode/utf8"
-
 	"copiggy/internal/clipmodel"
 	"github.com/egoist/mygo/ui"
 )
@@ -12,23 +9,13 @@ import (
 // supplies the material, continuous outline, arrow and screen-edge placement.
 func (s *application) nativePopoverView(c *ui.Context) {
 	state := s.nativeState()
-	state.PopoverHint = ""
-	if s.draft != nil {
-		if current, ok := s.store.Current(); !ok || current.ID != state.DraftCurrent {
-			state.PopoverHint = s.tr("Clipboard changed")
-		}
-	}
-	defer func() {
-		if s.preview {
-			s.reportNativeHint(state.PopoverHint)
-		}
-	}()
 	p := panelColors(state.Dark)
 	setNativeTheme(c, p, state.Dark)
 	item, ok := s.selected()
 	if !ok {
 		return
 	}
+	semantic := *s.semanticState(item)
 	// Keep this focus target stable across selection, draft comparison and zoom.
 	// Only this native window binds PreviewFocus; the tray owns Focus separately.
 	root := ui.Column(c).Key("native-preview-surface").Fill().Focusable().AutoFocus().Bind(&state.PreviewFocus).Role(ui.RoleDialog).Label(s.tr("Content preview")).TextColor(p.text)
@@ -38,16 +25,13 @@ func (s *application) nativePopoverView(c *ui.Context) {
 			draftID = s.draft.ID
 		}
 		contentKey := struct {
-			ID, Draft            string
-			Language             string
-			Dark, Original, Zoom bool
-		}{item.ID, draftID, s.currentLanguage(), state.Dark, state.Original, state.Zoom}
+			ID, Draft      string
+			Language       string
+			Dark, Original bool
+			Semantic       nativeSemanticPreviewState
+		}{item.ID, draftID, s.currentLanguage(), state.Dark, state.Original, semantic}
 		ui.Column(c).Key(contentKey).Fill().Children(func() {
-			if state.Zoom {
-				s.nativeZoom(c, item, p)
-			} else {
-				s.nativePreviewContent(c, item, p)
-			}
+			s.nativePreviewContent(c, item, p)
 		})
 	})
 	if c.Shortcut(ui.Cmd, ui.KeyF) {
@@ -76,16 +60,10 @@ func (s *application) nativePopoverView(c *ui.Context) {
 		return
 	}
 	if c.Shortcut(0, ui.KeyEscape) {
-		if state.Zoom {
-			state.Zoom = false
-			state.PreviewFocus.Focus(c)
-			s.publish()
-		} else {
-			s.closeNativePreview()
-		}
+		s.closeNativePreview()
 		return
 	}
-	if state.Zoom || !state.PreviewFocus.Focused(c) {
+	if !state.PreviewFocus.Focused(c) {
 		return
 	}
 	if c.Shortcut(0, ui.KeyEnter) && !s.busy {
@@ -103,92 +81,87 @@ func (s *application) nativePopoverView(c *ui.Context) {
 }
 
 func (s *application) nativePreviewContent(c *ui.Context, item clipmodel.Item, p nativeColors) {
-	state := s.nativeState()
-	text := item.Text
-	if s.draft != nil && !state.Original {
-		text = s.draft.Text
+	switch item.Type {
+	case clipmodel.TypeJSON:
+		s.nativeJSONPreview(c, item, p)
+		return
+	case clipmodel.TypeImage:
+		s.nativeImagePreview(c, item, p)
+		return
+	case clipmodel.TypeLink:
+		s.nativeLinkPreview(c, item, p)
+		return
+	case clipmodel.TypeFilePath:
+		s.nativeFilePathPreview(c, item, p)
+		return
+	case clipmodel.TypeOTP, clipmodel.TypeToken, clipmodel.TypePrivateKey:
+		s.nativeSecretPreview(c, item, p)
+		return
+	case clipmodel.TypeDate:
+		s.nativeDatePreview(c, item, p)
+		return
+	case clipmodel.TypeTimestamp:
+		s.nativeTimestampPreview(c, item, p)
+		return
+	case clipmodel.TypeColor:
+		s.nativeColorPreview(c, item, p)
+		return
+	case clipmodel.TypeEmail:
+		s.nativeEmailPreview(c, item, p)
+		return
+	case clipmodel.TypePhone:
+		s.nativePhonePreview(c, item, p)
+		return
+	case clipmodel.TypeCoordinates:
+		s.nativeMapPreview(c, item, p)
+		return
 	}
-	_, height := c.Size()
-	ui.Column(c).Fill().Padding(12, 22, 18).Gap(14).Children(func() {
-		ui.Row(c).Height(30).Gap(8).AlignItems(ui.Center).Children(func() {
-			if item.Type == clipmodel.TypeJSON {
-				s.nativeJSONActions(c, p)
-			} else if item.Type == clipmodel.TypeImage {
-				if s.nativePreviewButton(c, "ArrowsOut", s.tr("Enlarge image"), p).Clicked() {
-					state.Zoom = true
-					state.PreviewFocus.Focus(c)
-					s.publish()
-				}
-			} else if item.Type == clipmodel.TypeLink {
-				s.nativeLinkActions(c, item, p)
-			}
-			ui.Spacer(c)
-			pinLabel := s.tr("Pin")
-			if item.Pinned {
-				pinLabel = s.tr("Unpin")
-			}
-			if s.nativePreviewButton(c, "PushPin", pinLabel, p).Clicked() {
-				s.setNativePinned(item.ID, !item.Pinned)
-			}
-			if s.nativePreviewButton(c, "Trash", s.tr("Delete item · ⌘⌫"), p).Clicked() {
-				s.deleteNativeItem(item.ID)
-			}
-			if s.nativePreviewButton(c, "X", s.tr("Close preview"), p).Clicked() {
-				s.closeNativePreview()
-			}
-		})
-		if item.Type == clipmodel.TypeLink {
-			s.nativeLinkContent(c, item, p)
-		} else {
-			ui.Scroll(c).Grow(1).MinHeight(50).FillWidth().Children(func() {
-				if item.Type == clipmodel.TypeImage {
-					if bitmap := s.nativeImage(item); bitmap != nil {
-						image := ui.Image(c, bitmap).FillWidth().Height(max(150, height-140)).Fit(ui.Contain).Radius(10).Label(s.tr("Copied image")).Cursor(ui.CursorPointer)
-						if image.Clicked() {
-							state.Zoom = true
-							state.PreviewFocus.Focus(c)
-							s.publish()
-						}
-					} else {
-						ui.Text(c, s.tr("Image unavailable")).FontSize(14).TextColor(p.muted).Role(ui.RoleStatus)
-					}
-				} else if item.Type == clipmodel.TypeJSON {
-					nativeJSONText(c, text, state.Dark).Font(nativeCodeFont).FontSize(14).FontWeight(400).LineHeight(1.6).Wrap()
-				} else {
-					ui.Text(c, text).Font(nativeContentFont).FontSize(17).FontWeight(400).LineHeight(1.6).Wrap()
-				}
-			})
+	s.nativeNotePreview(c, item, p)
+}
+
+func (s *application) nativePreviewScope(c *ui.Context, item clipmodel.Item, p nativeColors) {
+	if len(item.AllowedApps) > 0 {
+		color := p.muted
+		scope := s.scopeLabel(item.AllowedApps)
+		if !s.native.Enabled() {
+			scope += " · " + s.tr("Inactive")
+			color = p.warning
 		}
-		ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
-			ui.Column(c).Gap(5).Grow(1).MinWidth(0).Children(func() {
-				info := s.tr("%d characters", utf8.RuneCountInString(text))
-				if item.Type == clipmodel.TypeImage && item.Image != nil {
-					info = fmt.Sprintf("%d × %d · PNG", item.Image.Width, item.Image.Height)
-				} else if item.Type == clipmodel.TypeLink {
-					info = s.nativeLinkLocation(item)
-				}
-				if s.draft != nil {
-					prefix := s.tr("Formatted draft")
-					if state.Original {
-						prefix = s.tr("Original")
-					}
-					info = prefix + " · " + info
-				}
-				ui.Text(c, info).FontSize(11).FontFeatures("tnum").TextColor(p.muted)
-				if len(item.AllowedApps) > 0 {
-					color := p.muted
-					scope := s.scopeLabel(item.AllowedApps)
-					if !s.native.Enabled() {
-						scope += " · " + s.tr("Inactive")
-						color = p.warning
-					}
-					ui.Row(c).Gap(5).AlignItems(ui.Center).TextColor(color).Children(func() {
-						nativeGlyph(c, "LockSimple", 13)
-						ui.Text(c, scope).FontSize(12).SingleLine()
-					})
-				}
-			})
+		ui.Row(c).Gap(5).AlignItems(ui.Center).TextColor(color).Children(func() {
+			nativeGlyph(c, "LockSimple", 13)
+			ui.Text(c, scope).FontSize(nativeTextControl).SingleLine()
 		})
+	}
+}
+
+func (s *application) nativePreviewToolbar(c *ui.Context, item clipmodel.Item, p nativeColors) {
+	ui.Row(c).Height(nativeControlSize).Gap(nativeToolbarGap).AlignItems(ui.Center).Children(func() {
+		if item.Type == clipmodel.TypeJSON {
+			s.nativeJSONActions(c, p)
+		} else if item.Type == clipmodel.TypeImage {
+			s.nativeImageActions(c, item, p)
+		} else if item.Type == clipmodel.TypeLink {
+			s.nativeLinkActions(c, item, p)
+		} else {
+			s.nativeSemanticActions(c, item, p)
+		}
+		ui.Spacer(c)
+		if item.Type == clipmodel.TypeLink {
+			s.nativeLinkOpenAction(c, item, p)
+		}
+		pinLabel, pinIcon := s.tr("Pin"), "PushPin"
+		if item.Pinned {
+			pinLabel, pinIcon = s.tr("Unpin"), "PushPinFill"
+		}
+		if s.nativePreviewButton(c, pinIcon, pinLabel, p).Clicked() {
+			s.setNativePinned(item.ID, !item.Pinned)
+		}
+		if s.nativePreviewButton(c, "Trash", s.tr("Delete item · ⌘⌫"), p).Clicked() {
+			s.deleteNativeItem(item.ID)
+		}
+		if s.nativePreviewButton(c, "X", s.tr("Close preview"), p).Clicked() {
+			s.closeNativePreview()
+		}
 	})
 }
 
@@ -202,16 +175,11 @@ func (s *application) nativeJSONActions(c *ui.Context, p nativeColors) {
 			s.publish()
 		}
 	} else if s.draft == nil {
-		if s.nativePreviewButton(c, "BracketsCurly", s.tr("Format JSON"), p).Clicked() {
-			if current, ok := s.store.Current(); ok {
-				state.DraftCurrent = current.ID
-			} else {
-				state.DraftCurrent = ""
-			}
+		if s.nativeActionButton(c, "BracketsCurly", s.tr("Format"), p).Label(s.tr("Format JSON")).Disabled(s.commandBusy).Clicked() {
 			s.enhance(clipmodel.FormatJSON)
 		}
 	} else {
-		if s.nativePreviewButton(c, "ArrowsLeftRight", s.tr("Original / result"), p).Clicked() {
+		if s.nativePreviewButton(c, "ArrowsLeftRight", s.tr("Original / result"), p).Disabled(s.commandBusy).Clicked() {
 			state.Original = !state.Original
 			state.PreviewFocus.Focus(c)
 			s.publish()
@@ -235,31 +203,25 @@ func (s *application) nativeJSONActions(c *ui.Context, p nativeColors) {
 
 // Toolbar controls stay visually quiet and retain the preview's keyboard focus.
 func (s *application) nativePreviewButton(c *ui.Context, name, label string, p nativeColors) ui.Element {
-	button := ui.ButtonBase(c).Label(label).Description(label).Size(30, 30).Radius(6).Padding(0).AlignItems(ui.Center).Justify(ui.Center).TextColor(p.icon).Cursor(ui.CursorPointer).Shrink(0).KeepFocus()
+	button := ui.ButtonBase(c).Label(label).Description(label).Size(nativeControlSize, nativeControlSize).Radius(nativeControlRadius).Padding(0).AlignItems(ui.Center).Justify(ui.Center).TextColor(p.icon).Cursor(ui.CursorPointer).Shrink(0).KeepFocus()
 	if button.Hovered() || button.Pressed() {
 		button.Background(p.hover)
 	} else {
 		button.Background(ui.Transparent)
 	}
-	button.Children(func() { nativeGlyph(c, name, 19) })
-	collectNativeHint(button, label, &s.nativeState().PopoverHint)
+	button.Children(func() { nativeGlyph(c, name, nativeToolbarIconSize) })
 	return button
 }
 
-func (s *application) nativeZoom(c *ui.Context, item clipmodel.Item, p nativeColors) {
-	state := s.nativeState()
-	ui.Column(c).Fill().Padding(12, 22, 18).Gap(14).Children(func() {
-		ui.Row(c).Height(30).Justify(ui.End).Children(func() {
-			if s.nativePreviewButton(c, "X", s.tr("Close image preview"), p).Clicked() {
-				state.Zoom = false
-				state.PreviewFocus.Focus(c)
-				s.publish()
-			}
-		})
-		if bitmap := s.nativeImage(item); bitmap != nil {
-			ui.Image(c, bitmap).Fill().Fit(ui.Contain).Label(s.tr("Full image"))
-		} else {
-			ui.Text(c, s.tr("Image unavailable")).Grow(1).FontSize(14).TextColor(p.muted).Role(ui.RoleStatus)
-		}
-	})
+// Metadata copy controls share their glyph, target and focus behavior across
+// content types. chooseNative resolves the original or explicit preview format.
+func (s *application) nativeCopyButton(c *ui.Context, p nativeColors) ui.Element {
+	button := ui.ButtonBase(c).Label(s.tr("Copy")).Size(nativeCompactControl, nativeCompactControl).Shrink(0).Radius(nativeControlRadius).KeepFocus().Disabled(s.busy || s.commandBusy).AlignItems(ui.Center).Justify(ui.Center).TextColor(p.icon)
+	if button.Hovered() {
+		button.Background(p.hover)
+	} else {
+		button.Background(ui.Transparent)
+	}
+	button.Children(func() { nativeGlyph(c, "Copy", nativeIconSize) })
+	return button
 }

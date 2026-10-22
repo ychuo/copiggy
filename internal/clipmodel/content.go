@@ -3,7 +3,6 @@ package clipmodel
 import (
 	"crypto/sha256"
 	"encoding/json"
-	"net/url"
 	"strings"
 
 	"copiggy/resources"
@@ -14,10 +13,20 @@ import (
 type ContentType string
 
 const (
-	TypeText  ContentType = "text"
-	TypeJSON  ContentType = "json"
-	TypeLink  ContentType = "link"
-	TypeImage ContentType = "image"
+	TypeText        ContentType = "text"
+	TypeJSON        ContentType = "json"
+	TypeLink        ContentType = "link"
+	TypeImage       ContentType = "image"
+	TypeEmail       ContentType = "email"
+	TypePhone       ContentType = "phone"
+	TypeCoordinates ContentType = "coordinates"
+	TypeDate        ContentType = "date"
+	TypeTimestamp   ContentType = "timestamp"
+	TypeColor       ContentType = "color"
+	TypeFilePath    ContentType = "file-path"
+	TypeOTP         ContentType = "otp"
+	TypeToken       ContentType = "token"
+	TypePrivateKey  ContentType = "private-key"
 )
 
 // ImageMetadata describes a validated PNG. Record keeps its exact original
@@ -30,7 +39,7 @@ type ImageMetadata struct {
 }
 
 // Content is the value supplied by a native clipboard adapter. An omitted Type
-// means text; text, JSON and link content is classified from Text. Image content
+// means text; all text-based content is classified from Text. Image content
 // must explicitly use TypeImage and supply valid PNG metadata.
 type Content struct {
 	Type        ContentType
@@ -45,7 +54,8 @@ type Content struct {
 
 func normalizeContent(content Content) (Content, bool) {
 	switch content.Type {
-	case "", TypeText, TypeJSON, TypeLink:
+	case "", TypeText, TypeJSON, TypeLink, TypeEmail, TypePhone, TypeCoordinates,
+		TypeDate, TypeTimestamp, TypeColor, TypeFilePath, TypeOTP, TypeToken, TypePrivateKey:
 		if content.Text == "" {
 			return Content{}, false
 		}
@@ -74,21 +84,7 @@ func textFingerprint(text string) [sha256.Size]byte {
 }
 
 func classifyText(text string) ContentType {
-	trimmed := strings.TrimSpace(text)
-	// JSON scalars such as a copied number remain ordinary text in history.
-	// Explicit JSON formatting can still process any valid JSON text.
-	if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") {
-		if json.Valid([]byte(trimmed)) {
-			return TypeJSON
-		}
-	}
-	if !strings.ContainsAny(trimmed, "\r\n\t ") {
-		if parsed, err := url.Parse(trimmed); err == nil &&
-			(parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != "" {
-			return TypeLink
-		}
-	}
-	return TypeText
+	return Analyze(text).Type
 }
 
 var localizedTypeSearchTerms = func() map[ContentType]string {

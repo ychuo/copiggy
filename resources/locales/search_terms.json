@@ -22,5 +22,65 @@
     "zh-Hans": "图片 图像",
     "zh-Hant": "圖片 影像",
     "ja": "画像 写真"
+  },
+  "email": {
+    "en": "email address mail",
+    "zh-Hans": "邮箱 邮件",
+    "zh-Hant": "電子郵件 電郵",
+    "ja": "メール アドレス"
+  },
+  "phone": {
+    "en": "phone telephone number",
+    "zh-Hans": "电话 手机号码",
+    "zh-Hant": "電話 手機號碼",
+    "ja": "電話 番号"
+  },
+  "coordinates": {
+    "en": "coordinates latitude longitude map location",
+    "zh-Hans": "坐标 经纬度 地图 位置",
+    "zh-Hant": "座標 經緯度 地圖 位置",
+    "ja": "座標 緯度 経度 地図"
+  },
+  "date": {
+    "en": "date calendar time",
+    "zh-Hans": "日期 日历 时间",
+    "zh-Hant": "日期 日曆 時間",
+    "ja": "日付 カレンダー 時刻"
+  },
+  "timestamp": {
+    "en": "timestamp unix epoch seconds milliseconds",
+    "zh-Hans": "时间戳 秒 毫秒",
+    "zh-Hant": "時間戳 秒 毫秒",
+    "ja": "タイムスタンプ 秒 ミリ秒"
+  },
+  "color": {
+    "en": "color colour hex rgb hsl",
+    "zh-Hans": "颜色 色值",
+    "zh-Hant": "顏色 色值",
+    "ja": "色 カラー"
+  },
+  "file-path": {
+    "en": "file path folder directory",
+    "zh-Hans": "文件 路径 文件夹",
+    "zh-Hant": "檔案 路徑 資料夾",
+    "ja": "ファイル パス フォルダ"
+  },
+  "otp": {
+    "en": "otp verification code one time password",
+    "zh-Hans": "验证码 一次性密码",
+    "zh-Hant": "驗證碼 一次性密碼",
+    "ja": "認証コード ワンタイムパスワード"
+  },
+  "token": {
+    "en": "token api key jwt credential",
+    "zh-Hans": "令牌 密钥 凭据",
+    "zh-Hant": "權杖 金鑰 憑證",
+    "ja": "トークン APIキー 認証情報"
+  },
+  "private-key": {
+    "en": "private key pem openssh credential",
+    "zh-Hans": "私钥 密钥 凭据",
+    "zh-Hant": "私鑰 金鑰 憑證",
+    "ja": "秘密鍵 認証情報"
   }
 }

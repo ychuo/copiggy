@@ -1,0 +1,17 @@
+{
+  "otp": {
+    "en": [
+      "verification code",
+      "security code",
+      "one-time code",
+      "one time code",
+      "one-time password",
+      "one time password",
+      "otp",
+      "code"
+    ],
+    "zh-Hans": ["验证码"],
+    "zh-Hant": ["驗證碼"],
+    "ja": ["認証コード"]
+  }
+}

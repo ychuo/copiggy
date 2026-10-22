@@ -88,7 +88,7 @@ func TestContentClassificationAndTypeSearch(t *testing.T) {
 		{"123", TypeText},
 		{"https://example.com/path?q=test", TypeLink},
 		{"hello https://example.com", TypeText},
-		{"file:///private/path", TypeText},
+		{"file:///private/path", TypeFilePath},
 		{"https://", TypeText},
 	} {
 		item, ok := store.Capture(example.text, "Some Editor", false)
@@ -139,7 +139,7 @@ func TestImageEnhancementIsRejectedWithoutCreatingTextDraft(t *testing.T) {
 	assertCurrent(t, store, image.ID)
 }
 
-func TestAcceptedJSONEnhancementPreservesClassificationAndOriginalImage(t *testing.T) {
+func TestJSONEnhancementPreservesClassificationAndOriginalImage(t *testing.T) {
 	store := NewStore(10)
 	source, _ := store.CaptureProtected(`{"value":1}`, "com.editor", []string{"com.editor"})
 	image, _ := store.CaptureContent(Content{
@@ -151,13 +151,13 @@ func TestAcceptedJSONEnhancementPreservesClassificationAndOriginalImage(t *testi
 		t.Fatal(err)
 	}
 	assertCurrent(t, store, image.ID)
-	accepted, err := store.Accept(draft.ID)
-	if err != nil || accepted.Type != TypeJSON || accepted.Image != nil ||
-		accepted.ParentID != source.ID || accepted.Allows("com.other.app") {
-		t.Fatalf("accepted JSON lost classification or scope: %+v, %v", accepted, err)
+	validated, err := store.ValidateDraft(draft.ID)
+	if err != nil || Analyze(validated.Text).Type != TypeJSON ||
+		validated.ParentID != source.ID || !reflect.DeepEqual(validated.AllowedApps, []string{"com.editor"}) {
+		t.Fatalf("validated JSON lost classification or scope: %+v, %v", validated, err)
 	}
 	items := store.Items()
-	if items[1].ID != image.ID || items[1].Image.Width != 20 || items[1].Type != TypeImage {
+	if len(items) != 2 || items[0].ID != image.ID || items[0].Image.Width != 20 || items[0].Type != TypeImage {
 		t.Fatal("text enhancement changed the unrelated PNG history")
 	}
 }

@@ -39,18 +39,14 @@ func TestProtectedCaptureAndEnhancementKeepIndependentScope(t *testing.T) {
 	if validated.Text != "{\n  \"key\": \"value\"\n}" {
 		t.Fatalf("unexpected enhanced content: %q", validated.Text)
 	}
-	accepted, err := store.Accept(draft.ID)
-	if err != nil {
-		t.Fatal(err)
+	if validated.ParentID != protected.ID || !reflect.DeepEqual(validated.AllowedApps, []string{"com.source.editor"}) {
+		t.Fatalf("enhanced draft lost source or protected scope: %+v", validated)
 	}
-	if accepted.ParentID != protected.ID || !reflect.DeepEqual(accepted.AllowedApps, []string{"com.source.editor"}) {
-		t.Fatalf("enhanced item lost source or protected scope: %+v", accepted)
-	}
-	assertCurrent(t, store, accepted.ID)
-	original := store.Items()[1]
+	assertCurrent(t, store, protected.ID)
+	original := store.Items()[0]
 	if original.ID != protected.ID || original.Text != `{"key":"value"}` ||
 		!reflect.DeepEqual(original.AllowedApps, []string{"com.source.editor"}) {
-		t.Fatalf("accepting enhancement changed the protected original: %+v", original)
+		t.Fatalf("validating enhancement changed the protected original: %+v", original)
 	}
 }
 

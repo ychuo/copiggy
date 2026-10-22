@@ -30,13 +30,12 @@ func TestNativePopoverContentByType(t *testing.T) {
 	for _, kind := range []clipmodel.ContentType{clipmodel.TypeJSON, clipmodel.TypeText, clipmodel.TypeImage} {
 		t.Run(string(kind), func(t *testing.T) {
 			s := nativeViewFixture(t)
-			height := 360
+			_, height := nativeContentPreviewSize(kind)
 			switch kind {
 			case clipmodel.TypeText:
 				s.selectNative(1, true)
 			case clipmodel.TypeImage:
 				nativePopoverImageFixture(t, s)
-				height = 420
 			}
 			s.preview = true
 			current, _ := s.store.Current()
@@ -49,17 +48,17 @@ func TestNativePopoverContentByType(t *testing.T) {
 					t.Fatalf("popover rendered parent control %q", label)
 				}
 			}
-			for _, point := range []image.Point{{0, 0}, {8, 180}, {2, height - 2}} {
+			for _, point := range []image.Point{{0, 0}, {2, 180}, {2, height - 2}} {
 				if _, _, _, alpha := tt.Image().At(point.X, point.Y).RGBA(); alpha != 0 {
 					t.Fatalf("MyGo paints over AppKit popover material at %v", point)
 				}
 			}
 			_, jsonAction := tt.Find("格式化 JSON")
-			_, imageAction := tt.Find("放大图片")
+			_, imageAction := tt.Find("放大")
 			if jsonAction != (kind == clipmodel.TypeJSON) || imageAction != (kind == clipmodel.TypeImage) {
 				t.Fatalf("wrong actions for %s: JSON=%v, image=%v", kind, jsonAction, imageAction)
 			}
-			for _, label := range []string{"收起预览", "格式化 JSON", "放大图片"} {
+			for _, label := range []string{"收起预览", "格式化 JSON", "放大"} {
 				if action, ok := tt.Find(label); ok && (action.Y < 0 || action.Y+action.H > 48) {
 					t.Fatalf("%s action is not in the top toolbar: %+v", label, action)
 				}
@@ -141,7 +140,6 @@ func TestNativePopoverDraftComparisonAndCancellationDoNotWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.draft, s.preview = &draft, true
-	s.viewState.DraftCurrent = current.ID
 	tt := ui.NewTester(s.nativePopoverView, 520, 360)
 	if !tt.HasText("格式化草稿") {
 		t.Fatal("preview did not identify the pending result")
@@ -181,49 +179,38 @@ func TestNativePopoverImageZoomKeepsNavigationWithinPreview(t *testing.T) {
 	s.preview = true
 	parent.Frame()
 	popup := ui.NewTester(s.nativePopoverView, 520, 420)
-	if err := popup.Click("放大图片"); err != nil {
+	if err := popup.Click(s.tr("Zoom in")); err != nil {
 		t.Fatal(err)
 	}
-	if !s.viewState.Zoom || !popup.HasText("完整图片") {
-		t.Fatal("image did not open its large preview")
+	if s.semanticState(item).ImageZoom != 1 || !popup.Focused(s.tr("Content preview")) {
+		t.Fatal("image zoom did not update in the current preview or lost keyboard focus")
 	}
-	if close, ok := popup.Find("关闭图片预览"); !ok || close.Y+close.H > 48 {
-		t.Fatal("zoom close action is absent from the top toolbar")
-	}
-	for _, label := range []string{"esc", "返回"} {
-		if _, ok := popup.Find(label); ok {
-			t.Fatalf("zoom retained the footer hint %q", label)
+	for _, label := range []string{"Zoom out", "Zoom in", "Fit", "Pin", "Delete item · ⌘⌫", "Close preview"} {
+		control, ok := popup.Find(s.tr(label))
+		if !ok || control.Y+control.H > 48 {
+			t.Fatalf("image preview is missing its shared top control %s", label)
 		}
 	}
+	assertNativeCurrent(t, s, item.ID)
 	before := s.chosen
 	popup.Key(0, ui.KeyRight)
-	popup.Key(0, ui.KeyEnter)
-	if s.chosen != before || !s.viewState.Zoom || !s.preview {
-		t.Fatal("zoom consumed navigation or Enter as a clipboard selection")
-	}
-	assertNativeCurrent(t, s, item.ID)
-	popup.Key(0, ui.KeyEscape)
-	if s.viewState.Zoom || !s.preview || !popup.Focused("内容预览") {
-		t.Fatal("Escape did not return focus to normal preview")
-	}
-	popup.Key(0, ui.KeyRight)
-	if s.chosen != before+1 {
-		t.Fatal("navigation did not resume after leaving zoom")
+	if s.chosen != before+1 || !s.preview {
+		t.Fatal("zoom controls stranded history navigation")
 	}
 	popup.Key(0, ui.KeyLeft)
-	if err := popup.Click("放大图片"); err != nil {
+	if s.semanticState(item).ImageZoom != 0 {
+		t.Fatal("returning to the image retained old zoom")
+	}
+	if err := popup.Click(s.tr("Zoom in")); err != nil {
 		t.Fatal(err)
 	}
-	if err := popup.Click("关闭图片预览"); err != nil {
-		t.Fatal(err)
+	popup.Key(0, ui.KeyEscape)
+	if s.preview || s.semanticPreview.ImageZoom != 0 {
+		t.Fatal("Escape did not close and reset image preview")
 	}
-	if s.viewState.Zoom || !popup.Focused("内容预览") {
-		t.Fatal("close icon did not restore normal preview focus")
-	}
-	popup.Key(ui.Cmd, ui.KeyY)
 	parent.Frame()
 	parent.Key(0, ui.KeyRight)
-	if s.preview || s.chosen != before+1 {
+	if s.chosen != before+1 {
 		t.Fatal("closing the popover did not restore parent card navigation")
 	}
 	assertNativeCurrent(t, s, item.ID)
