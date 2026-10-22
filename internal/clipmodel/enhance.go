@@ -26,7 +26,7 @@ var (
 )
 
 // Draft is a preview, not a history entry or the current clipboard. Its policy
-// is copied from the source. Accept uses the internal snapshot identified by ID,
+// is copied from the source. Validation uses the internal snapshot identified by ID,
 // so editing the returned value cannot silently remove its restrictions.
 type Draft struct {
 	ID          string          `json:"id"`
@@ -99,8 +99,8 @@ func (s *Store) Enhance(ctx context.Context, id string, kind EnhancementKind) (D
 
 // ValidateDraft returns a trusted, independent preview snapshot without changing
 // current or history. Native integration must validate before writing the system
-// clipboard, then Accept only after that write succeeds. The adapter must
-// serialize other store mutations across this validate/write/accept sequence;
+// clipboard, then consume the draft only after that write succeeds. The adapter
+// must serialize other store mutations across this validate/write/consume sequence;
 // this method alone does not reserve or lock a draft between calls.
 func (s *Store) ValidateDraft(draftID string) (Draft, error) {
 	s.mu.RLock()
@@ -127,35 +127,6 @@ func (s *Store) validateDraftLocked(draftID string) (Draft, error) {
 		return Draft{}, ErrDraftStale
 	}
 	return cloneDraft(draft), nil
-}
-
-// Accept consumes a draft, creates a new history record and makes it current.
-// The original record is retained, subject to the normal history capacity. If
-// the source policy has changed, or the source is no longer available to verify,
-// it returns ErrDraftStale without changing current or history. Native callers
-// should ValidateDraft, write that trusted value, then Accept as one serialized
-// action, so a rejected draft is never written to the system clipboard first.
-func (s *Store) Accept(draftID string) (Item, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	draft, err := s.validateDraftLocked(draftID)
-	if err != nil {
-		return Item{}, err
-	}
-	item := Item{
-		ID:          s.newIDLocked("item"),
-		Type:        classifyText(draft.Text),
-		Text:        draft.Text,
-		SourceApp:   draft.SourceApp,
-		SourceAppID: draft.SourceAppID,
-		AllowedApps: append([]string(nil), draft.AllowedApps...),
-		ParentID:    draft.ParentID,
-		CreatedAt:   time.Now(),
-		fingerprint: textFingerprint(draft.Text),
-	}
-	s.insertLocked(item)
-	delete(s.drafts, draftID)
-	return cloneItem(item), nil
 }
 
 // Cancel discards a draft without changing history or current. It is safe to

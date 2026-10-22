@@ -242,10 +242,20 @@ func (s *Store) RestoreItem(item Item, content Content) error {
 	content, valid := normalizeContent(content)
 	number, err := strconv.ParseUint(strings.TrimPrefix(item.ID, "item-"), 10, 64)
 	if !valid || !strings.HasPrefix(item.ID, "item-") || err != nil || number == 0 || number >= ^uint64(0)-1 ||
-		item.CreatedAt.IsZero() || item.Type != content.Type || item.Text != content.Text ||
+		item.CreatedAt.IsZero() || item.Text != content.Text ||
 		(item.Image == nil) != (content.Image == nil) {
 		return ErrInvalidPin
 	}
+	// Text presentation may gain new recognizers between releases. Derive it
+	// again from validated representations; saved types never grant authority.
+	// Images remain explicit so a corrupt saved record cannot switch formats.
+	if item.Type != content.Type && (item.Type == TypeImage || content.Type == TypeImage) {
+		return ErrInvalidPin
+	}
+	if _, valid := normalizeContent(Content{Type: item.Type, Text: item.Text, Image: item.Image}); !valid {
+		return ErrInvalidPin
+	}
+	item.Type = content.Type
 	if item.Image != nil && *item.Image != *content.Image {
 		return ErrInvalidPin
 	}
@@ -301,7 +311,7 @@ func (s *Store) Remove(id string) error {
 
 // SetAllowedApps changes a stored item's policy, including its current snapshot
 // if selected. It copies, trims and deduplicates the caller's application IDs.
-// Pending drafts retain their generation-time policy snapshot; Accept rejects
+// Pending drafts retain their generation-time policy snapshot; ValidateDraft rejects
 // them if it no longer matches the source policy.
 func (s *Store) SetAllowedApps(id string, apps []string) error {
 	s.mu.Lock()

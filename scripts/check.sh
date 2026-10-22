@@ -12,7 +12,6 @@ fi
 
 # Default tests never use the desktop or real clipboard. Native event callback
 # integration checks are separately gated by the integration build tag.
-export COPIGGY_NATIVE_SCREENSHOTS=
 go test ./... -timeout 120s
 # MyGo vet runs go vet before checking native UI element lifetimes.
 go tool mygo vet

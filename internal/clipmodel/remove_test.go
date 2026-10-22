@@ -57,12 +57,9 @@ func TestRemoveDraftSourceMakesDraftStaleUntilCanceled(t *testing.T) {
 	if _, err := store.ValidateDraft(draft.ID); !errors.Is(err, ErrDraftStale) {
 		t.Fatalf("removed source was still valid before a native write: %v", err)
 	}
-	if _, err := store.Accept(draft.ID); !errors.Is(err, ErrDraftStale) {
-		t.Fatalf("removed source draft could be accepted: %v", err)
-	}
 	assertCurrent(t, store, current.ID)
 	if !reflect.DeepEqual(before, store.Items()) {
-		t.Fatal("accepting stale draft changed history")
+		t.Fatal("validating stale draft changed history")
 	}
 	store.Cancel(draft.ID)
 	if _, err := store.ValidateDraft(draft.ID); !errors.Is(err, ErrDraftNotFound) {

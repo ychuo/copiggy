@@ -32,15 +32,7 @@ func (s *application) syncNativePopover() {
 	if !ok {
 		return // ScrollIntoView will produce the selected card's next bounds.
 	}
-	width, height := 520, 360
-	if item.Type == clipmodel.TypeImage {
-		height = 420
-	} else if item.Type == clipmodel.TypeLink {
-		width, height = 720, 500
-	}
-	if state.Zoom {
-		width, height = 800, 560
-	}
+	width, height := nativeContentPreviewSize(item.Type)
 	display := mygo.Screen.DisplayNearestPoint(mygo.Screen.CursorScreenPoint())
 	width, height = min(width, display.WorkArea.Width-48), min(height, display.WorkArea.Height-80)
 	if s.popover == nil {
@@ -114,6 +106,37 @@ func (s *application) syncNativePopover() {
 	// Embedded WebKit needs the real window adopted by popup.Show(). A hidden
 	// NSPopover has no NSWindow, and reopening may allocate a different one.
 	s.syncNativeLinkPreview(item)
+}
+
+// Use the same content dimensions for the native host and headless layout
+// checks so compact surfaces are exercised at their actual available height.
+func nativeContentPreviewSize(kind clipmodel.ContentType) (int, int) {
+	switch kind {
+	case clipmodel.TypeText:
+		return 520, nativeNotePreviewHeight
+	case clipmodel.TypeJSON:
+		return 520, nativeJSONPreviewHeight
+	case clipmodel.TypeFilePath:
+		return 520, nativeFilePathPreviewHeight
+	case clipmodel.TypeOTP, clipmodel.TypeToken, clipmodel.TypePrivateKey:
+		return 520, nativeSecretPreviewHeight(kind)
+	case clipmodel.TypeEmail:
+		return 520, nativeEmailPreviewHeight
+	case clipmodel.TypeColor:
+		return 520, nativeColorPreviewHeight
+	case clipmodel.TypeDate:
+		return 520, nativeDatePreviewHeight
+	case clipmodel.TypeTimestamp:
+		return 520, nativeTimestampPreviewHeight
+	case clipmodel.TypeImage:
+		return 520, nativeImagePreviewHeight
+	case clipmodel.TypeLink:
+		return 720, 500
+	case clipmodel.TypeCoordinates:
+		return nativeMapPreviewWidth, nativeMapPreviewHeight
+	default:
+		return 520, 360
+	}
 }
 
 // Anchor only to the visible part of a card. AppKit owns the arrow position and

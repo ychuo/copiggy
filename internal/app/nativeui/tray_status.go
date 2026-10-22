@@ -41,10 +41,6 @@ func (state *trayStatusState) title(now time.Time) string {
 	return ""
 }
 
-// Native controls retain their accessibility labels, but hovering or focusing
-// them no longer changes the menu-bar title or opens any separate hint surface.
-func (s *application) reportNativeHint(_ string) {}
-
 // Existing callers may pass an English source key or an already-localized label.
 // Match exact catalog entries only; wording prefixes and translated fragments
 // must never decide whether a message is important.

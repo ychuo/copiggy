@@ -258,6 +258,19 @@ func (s *application) nativeLinkActions(c *ui.Context, item clipmodel.Item, p na
 	if s.nativePreviewButton(c, icon, s.tr(label), p).Clicked() && state != nil {
 		state.action = action
 	}
+	ui.Row(c).Grow(1).MinWidth(0).Gap(nativeToolbarGap).AlignItems(ui.Center).Children(func() {
+		var bitmap *ui.Bitmap
+		// A previously cached favicon belongs to the copied origin. A redirect
+		// to another site gets a neutral globe, never the previous site's logo.
+		if s.nativeLinkShowsOriginalOrigin(item) {
+			bitmap = s.nativeState().WebsiteIcons[item.ID]
+		}
+		s.nativeLinkSiteIcon(c, bitmap, nativeToolbarIconSize, p)
+		ui.Text(c, s.nativeLinkLocation(item)).Font(nativeUIFont).FontSize(nativeTextControl).FontWeight(nativeWeightBody).TextColor(p.muted).Grow(1).MinWidth(0).SingleLine()
+	})
+}
+
+func (s *application) nativeLinkOpenAction(c *ui.Context, item clipmodel.Item, p nativeColors) {
 	if s.nativePreviewButton(c, "ArrowSquareOut", s.tr("Open in browser"), p).Clicked() {
 		s.openNativeLink(item)
 	}
@@ -286,24 +299,25 @@ func (s *application) nativeLinkContent(c *ui.Context, item clipmodel.Item, p na
 	} else if state != nil {
 		failure = state.failure
 	}
-	ui.Column(c).Grow(1).MinHeight(50).FillWidth().Radius(10).Clip().Children(func() {
+	ui.Column(c).Grow(1).MinHeight(0).FillWidth().Radius(nativePreviewPaperRadius).Clip().Children(func() {
 		if state != nil && state.view != nil && failure == "" {
-			ui.WebView(c, state.view).Grow(1).MinHeight(50).Radius(10).Label(s.tr("Web page"))
+			ui.WebView(c, state.view).Grow(1).MinHeight(0).Radius(nativePreviewPaperRadius).Label(s.tr("Web page"))
 		}
 		if failure != "" || state == nil || !state.committed {
-			overlay := ui.Column(c).Fill().Padding(24).Gap(14).AlignItems(ui.Center).Justify(ui.Center).Background(p.link)
+			ink := nativeLinkColors()
+			overlay := ui.Column(c).Fill().MinHeight(0).Padding(24).Gap(14).AlignItems(ui.Center).Justify(ui.Center).Background(ink.paper)
 			if state != nil && state.view != nil && failure == "" {
 				overlay.Absolute().Top(0).Left(0).Right(0).Bottom(0)
 			}
 			overlay.Children(func() {
-				nativeGlyph(c, "Globe", 25).TextColor(p.icon)
+				nativeGlyph(c, "Globe", 25).TextColor(ink.icon)
 				label := "Loading page…"
 				if failure != "" {
 					label = failure
 				}
-				ui.Text(c, s.tr(label)).FontSize(13).TextColor(p.muted).Wrap().Role(ui.RoleStatus)
+				ui.Text(c, s.tr(label)).Font(nativeUIFont).FontSize(nativeTextBase).FontWeight(nativeWeightBody).TextColor(ink.muted).Wrap().TextAlign(ui.Center).Role(ui.RoleStatus)
 				if failure != "" && valid {
-					if ui.Button(c, s.tr("Retry")).KeepFocus().Clicked() && state != nil {
+					if s.nativeActionButton(c, "ArrowClockwise", s.tr("Retry"), ink).Clicked() && state != nil {
 						state.action = "retry"
 					}
 				}
@@ -320,5 +334,18 @@ func (s *application) nativeLinkLocation(item clipmodel.Item) string {
 	if u, err := url.Parse(raw); err == nil && u.Host != "" {
 		return u.Host
 	}
-	return raw
+	return ""
+}
+
+func (s *application) nativeLinkShowsOriginalOrigin(item clipmodel.Item) bool {
+	original, err := url.Parse(strings.TrimSpace(item.Text))
+	if err != nil || original.Hostname() == "" {
+		return false
+	}
+	raw := item.Text
+	if state := s.nativeLinkState(item); state != nil {
+		raw = state.displayedURL()
+	}
+	current, err := url.Parse(raw)
+	return err == nil && strings.EqualFold(original.Scheme, current.Scheme) && strings.EqualFold(original.Host, current.Host)
 }

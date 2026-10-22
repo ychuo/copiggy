@@ -5,7 +5,49 @@ package appkit
 import (
 	"math"
 	"testing"
+
+	nativeobjc "copiggy/internal/macos/internal/objc"
+	"github.com/ebitengine/purego/objc"
 )
+
+// Only construct an in-memory NSColor. This checks the floating-point bridge
+// without constructing a window, sampling the desktop, or rendering glass.
+func TestTrayGlassTintIsSubtleNeutralAndClearedForDark(t *testing.T) {
+	if err := initGlassNative(); err != nil {
+		t.Fatal(err)
+	}
+	nativeobjc.WithPool(func() {
+		color := trayGlassTintColor(false)
+		if color == 0 {
+			t.Fatal("light glass tint was not created")
+		}
+		white := glassNative.getFloat(color, objc.RegisterName("whiteComponent"))
+		alpha := glassNative.getFloat(color, objc.RegisterName("alphaComponent"))
+		if math.Abs(white-.55) > 1e-6 || math.Abs(alpha-.14) > 1e-6 {
+			t.Fatalf("native neutral tint lost its components: white=%v alpha=%v", white, alpha)
+		}
+		if got := trayGlassTintColor(true); got != 0 {
+			t.Fatal("dark appearance retained a light-mode tint")
+		}
+	})
+}
+
+// Ordinary frames must not allocate another native color. No AppKit window
+// is involved; the missing effect pointer is never reached on this cache hit.
+func TestTrayGlassCachedLightTintDoesNotAllocateColor(t *testing.T) {
+	create := glassNative.colorWhite
+	defer func() { glassNative.colorWhite = create }()
+	called := false
+	glassNative.colorWhite = func(uintptr, objc.SEL, float64, float64) uintptr {
+		called = true
+		return 0
+	}
+	attachment := &trayGlassAttachment{tintSet: true, tintDark: false}
+	updateTrayGlassTint(attachment, false)
+	if called {
+		t.Fatal("unchanged light appearance allocated another tint")
+	}
+}
 
 // Malformed geometry must fail before dereferencing a native pointer or
 // dispatching into an application loop. No window is constructed by these tests.

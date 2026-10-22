@@ -23,9 +23,9 @@ Copiggy is a native clipboard companion for macOS. Browse what you copied, keep 
 
 ## Features
 
-- **History at a glance.** Cards for text, JSON, images and links, with source app icons, search and keyboard navigation. Repeated copies with the same protection scope move to the front instead of creating duplicates.
+- **History at a glance.** Distinct cards for 14 content types, from text and images to maps, colors, dates and credentials. Source app icons, search and keyboard navigation stay consistent. Repeated copies with the same protection scope move to the front.
 - **Copy with care.** Press **⌃⌘C** to bind a copy to its source app. While Paste Guard is on, standard keyboard paste is blocked in other apps.
-- **Preview and refine.** Read full text, enlarge images, browse linked pages, and preview JSON formatting before accepting it. The original clip stays intact.
+- **Preview and refine.** Read text, zoom images, browse pages, inspect colors and timestamps, or open an address in Mail, Maps or Finder. Preview JSON formatting before accepting it. The original clip stays intact.
 - **Keep the useful bits.** Pin clips for easy access, delete what you no longer need, and choose how long to keep ordinary history.
 - **Made for your Mac.** System glass, native popovers, light and dark themes, and a little pig in the menu bar. English, 简体中文, 繁體中文 and 日本語 are built in.
 
@@ -52,7 +52,7 @@ Packages are locally signed and not notarized. A copy downloaded from someone el
 4. Press **Return** or double-click a card to put it back on the clipboard and close the panel.
 5. Paste where you need it with **⌘V**.
 
-Browsing and previewing leave the clipboard unchanged. Right-click the menu-bar icon for history retention, recording, appearance and language settings.
+Browsing, previewing and choosing a format leave the clipboard unchanged until you copy. Return uses the original unless you explicitly choose JSON formatting, a color format, a dialing number or a timestamp unit. The original stays saved; these variants do not add history. Right-click the menu-bar icon for history retention, recording, appearance and language settings.
 
 | Action | Shortcut |
 | --- | --- |
@@ -60,7 +60,7 @@ Browsing and previewing leave the clipboard unchanged. Right-click the menu-bar 
 | Search | <kbd>⌘</kbd> <kbd>F</kbd> |
 | Navigate cards | <kbd>←</kbd> <kbd>→</kbd> |
 | Preview | <kbd>Space</kbd> or <kbd>⌘</kbd> <kbd>Y</kbd> |
-| Copy selected clip / accept an enhancement | <kbd>Return</kbd> |
+| Copy selected clip / chosen format | <kbd>Return</kbd> |
 | Pin or unpin | <kbd>⌘</kbd> <kbd>P</kbd> |
 | Delete selected clip | <kbd>⌘</kbd> <kbd>⌫</kbd> |
 | Close preview, search or panel | <kbd>Esc</kbd> |
@@ -77,8 +77,9 @@ Paste Guard helps prevent accidental keyboard paste. It does not stop other apps
 History and preferences stay on your Mac in `~/Library/Application Support/Copiggy/`. Language, theme, recording pause, retention and the Paste Guard preference are restored on restart.
 
 - **Retention:** 1 day, 7 days, 30 days (default), or Forever. Pins are exempt from age expiry. History is still bounded to 100 ordinary clips, 100 pins and 64 MiB of shared content.
-- **Local processing:** JSON formatting runs on your Mac. Clipboard history is not uploaded, and there are no cloud AI calls.
-- **Links:** website icons may be fetched for unrestricted public links using the site's origin, without the copied path or query. Opening a webpage preview loads the full address in a normal WebKit session.
+- **Local processing:** JSON formatting runs on your Mac. There are no cloud AI calls or bulk history uploads.
+- **Links:** visible public, unrestricted cards may fetch their saved page address, including path and query, to show a title and cover. These requests omit fragments, browser cookies, authentication and referrers, and run no scripts. Website icons still use only the site's origin. Opening a webpage preview uses a normal persistent WebKit session.
+- **Maps:** visible, unrestricted coordinate cards use Apple Maps snapshots. Protected coordinates stay local until you explicitly open Maps.
 
 See the [storage and network guide](docs/usage.md#storage-and-network-behavior) for details.
 

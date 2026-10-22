@@ -11,19 +11,21 @@ internal/
     nativeui/  Native views, menus, localization and presentation caches
   clipboard/   History transactions, capture, trusted copy and local enhancements
   clipmodel/   Records, exact representations, deduplication and retention rules
+  contentactions/ Pure derivation of explicit mail, phone, map, file and calendar actions
   settings/    Preference values, defaults and validation
   storage/     Versioned JSON repositories, legacy migration and atomic FIFO writes
   linkicons/   Restricted-origin HTTP icon retrieval and decoded image cache
+  linkmetadata/ Bounded copied-HTML parsing and public-page title/cover retrieval
   macos/
     pasteboard/ Native observation and verified clipboard writes
     guard/      Revision-bound policy, protected-copy requests and native tap
-    appkit/     Source icons, NSMenu, glass and owned popover appearance
+    appkit/     Source icons, NSMenu, glass, popover appearance and MapKit snapshots
     internal/objc/ Shared low-level runtime helpers
 resources/
   resources.go Embedded runtime artwork and catalogs
   brand/       Approved PNG artwork, menu-bar templates and Copiggy.icon source
   icons/       SVG icons and license
-  locales/     Multilingual content-type search keywords
+  locales/     Multilingual content-type search and recognition labels
 scripts/
   env.sh       Shared pinned toolchain, cache and production environment
   go.sh        Go command wrapper
@@ -36,11 +38,17 @@ build/         Generated output; ignored
 
 ## Responsibilities and threading
 
-`main.go` calls `app.Run`. The app composes services and native adapters; `nativeui` renders MyGo Native UI and owns only transient presentation state. `clipboard.History` owns records and their exact representations together, so the UI cannot maintain a second copy of business state. Copy commands accept trusted record or draft IDs and derive content and protection scope inside that service.
+`main.go` calls `app.Run`. The app composes services and native adapters; `nativeui` renders MyGo Native UI and owns only transient presentation state. `clipboard.History` owns records and their exact representations together, so the UI cannot maintain a second copy of business state. Copy commands accept a trusted record ID plus an allowlisted format, or a validated draft ID; the copy service derives content and allowed apps itself. UI-provided replacement text or policy is never authoritative. Successful variant/draft writes leave the original history record unchanged and do not append another record; consuming a draft only clears that transient work.
 
 Business commands run in order on an application worker. Native clipboard reads/writes and window operations execute on the AppKit thread; representation parsing, PNG validation, history encoding and disk I/O execute away from it. Queries read the last committed snapshot while disk writes are pending. Enhancement cancellation and image completions use the UI generation to reject obsolete results. Image decoding has two concurrent slots and a bounded bitmap cache. Quitting closes command admission, drains accepted work and flushes persistence before terminating the event loop.
 
 `storage` owns file formats and atomic writes. It never decides which record is current or protected. `clipmodel` owns pure record rules, and `settings` owns preference defaults. `linkicons` has no MyGo dependency and returns ordinary Go images; the UI alone creates and caches bitmaps. Its entry point rejects protected records before any cache or network lookup.
+
+`clipmodel.Analyze` derives typed display values from captured text. Explicit HEX/RGB/HSL, dialing-number and timestamp-unit choices select a session-only copy format; `clipmodel.CopyText` derives its plain text again from the trusted saved item. Opening preview alone keeps exact-original copying. UTC/local affects only the date explanation; milliseconds-to-seconds output truncates subsecond digits while saved milliseconds remain intact. Derived formats and masked strings never replace persisted clipboard authority. Restore reclassifies legacy text records while retaining their exact representations and scope. `contentactions` derives external targets from trusted saved records and does no I/O; the UI launches them only after an explicit action. Calendar exports use a private temporary file and the system calendar import flow. Format choices and sensitive reveal state belong to one preview session and clear on close or navigation. Reveal and zoom do not select a copy format; changing any preview control alone never writes the clipboard.
+
+MapKit snapshots use at most three concurrent native requests/decodes. Visible unrestricted cards are checked against the trusted store again before starting work, and completions check cache identity and record scope. Preview/card snapshots and link metadata share a bounded 24-entry/24 MiB memory cache. Hiding or quitting cancels pending work; map rendering preserves system attribution. Native integration remains manually verified, while pure validation, cancellation and cache behavior are tested in memory.
+
+Link metadata retrieval uses at most three workers and starts only for visible or nearby unrestricted public cards, never during capture. It prefers matching copied HTML; remote retrieval requests the saved path and query with the fragment removed, then parses Open Graph/Twitter metadata and fetches a supported cover. Requests carry no browser cookies, authentication or referrers and execute no scripts. Private/local destinations and protected records are excluded. Authority is rechecked before work starts and before results reach the UI. Successful covers expire after six hours; failures and coverless results after ten minutes. The cache is memory-only. Website icons retain their separate origin-only policy.
 
 Tests live beside their responsibility: domain/content rules in `clipmodel`, transaction/guard-observation tests in `clipboard`, file compatibility and failure tests in `storage`, and in-memory native rendering tests in `app/nativeui`. Native adapters retain separate initialization and failure boundaries. A popover appearance handle is an owned object with an idempotent `Close`; raw Objective-C ownership does not escape `appkit`.
 
@@ -89,7 +97,7 @@ Packaging requires full Xcode 26 or later for Icon Composer compilation; `DEVELO
 
 The menu-bar pig and clipboard are drawn from native vector paths in `internal/app/nativeui/tray_icon.go`. Their 72px transparent PNG exports in `resources/brand/` must match the runtime templates; `TestTrayBrandAssetsMatchRuntimeTemplates` checks parity. MyGo sets their height to 18pt, and AppKit handles the light/dark template tint. Keep protection indicators tied to the live guard, not the saved preference.
 
-The empty-history mascot uses two embedded PNG frames and three native rounded strokes aligned to the clipboard's tilt. Native timers schedule the occasional blink and animate each stroke only during its reveal or fade, sleeping through pauses. The empty pinned list uses two aligned pin-press poses with a long rest between gestures. Reduce Motion holds a still frame without timers. Search with no results retains its semantic icon. The [brand design notes](brand-design.md) describe the selected Little collector artwork and its generation prompts; [icon alternatives](brand-options/README.md) preserve the earlier choices.
+The empty-history mascot uses two embedded PNG frames and three native rounded strokes aligned to the clipboard's tilt. Native timers schedule the occasional blink and animate each stroke only during its reveal or fade, sleeping through pauses. The empty pinned list uses two aligned pin-press poses with a long rest between gestures. Reduce Motion holds a still frame without timers. Search with no results retains its semantic icon. Runtime artwork lives only in `resources/brand/`; shared visual rules are documented in the [design system](design/design-system.md).
 
 Changing the bundle location or rebuilding an ad-hoc-signed binary can require the user to refresh Accessibility permission. Do not modify the TCC database or automate authentication.
 
@@ -105,11 +113,11 @@ Preference changes enqueue one complete immutable snapshot and report actual sav
 | Ordinary and pinned records, provenance, time and allowed apps | Stored in `history.json`; pins are exempt from age expiry |
 | History limits | 100 ordinary / 100 pinned records, 64 MiB shared content; ordinary age limit 1/7/30 days or none |
 | Current clipboard revision and active protection binding | Memory only; never restored as authority over a newer clipboard |
-| Search, pin filter, selection, scroll and preview | Session-only |
+| Search, pin filter, selection, scroll, preview and copy-format choices | Session-only |
 | Unconfirmed enhancement drafts | Discarded on exit; never applied automatically |
-| Website icons and decoded images | Bounded memory cache, rebuilt as needed |
+| Website icons, link metadata, map snapshots and decoded images | Bounded memory caches, rebuilt as needed |
 | Webpage cookies and website data | WebKit's independent persistent store |
 
 Save and load use identical record validation. Corrupt or unsupported saved history is never silently overwritten. If startup migration or expiry cannot write, the validated original records remain available and saving can retry later. Dirty state avoids rewriting unchanged history during periodic polls. Pin/unpin/delete actions validate and save their proposed state before reporting success. Age expiry runs even while recording is paused. Keep the desired guard switch separate from actual listener availability and never persist runtime disable events as a change of user preference.
 
-The old web prototype, seeded diagnostic UI, self-test CLI modes and generated verification outputs are retired. The [archive](archive/README.md) records earlier decisions and checks; it does not define current behavior or prove the current build has passed manual verification.
+Keep design explorations, manual checklists and generated verification outputs out of the repository. Maintain runtime assets, automated regression tests, and current usage, architecture and design-system documentation.

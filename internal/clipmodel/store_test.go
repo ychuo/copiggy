@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestEnhancementPreviewCancelAndAccept(t *testing.T) {
+func TestEnhancementPreviewCancelAndIndependentPolicy(t *testing.T) {
 	store := NewStore(10)
 	source, _ := store.Capture("\r\n  first  \r\n\r\n\r\nsecond\t\r\n", "com.work.editor", false)
 	if err := store.SetAllowedApps(source.ID, []string{"com.work.chat"}); err != nil {
@@ -27,8 +27,8 @@ func TestEnhancementPreviewCancelAndAccept(t *testing.T) {
 		t.Fatal("preview must not create history")
 	}
 	store.Cancel(draft.ID)
-	if _, err := store.Accept(draft.ID); !errors.Is(err, ErrDraftNotFound) {
-		t.Fatalf("canceled draft was accepted: %v", err)
+	if _, err := store.ValidateDraft(draft.ID); !errors.Is(err, ErrDraftNotFound) {
+		t.Fatalf("canceled draft remained valid: %v", err)
 	}
 	assertCurrent(t, store, other.ID)
 
@@ -41,28 +41,23 @@ func TestEnhancementPreviewCancelAndAccept(t *testing.T) {
 	draft.AllowedApps[0] = "com.personal.chat"
 	items := store.Items()
 	items[1].AllowedApps[0] = "com.personal.chat"
-	accepted, err := store.Accept(draft.ID)
+	validated, err := store.ValidateDraft(draft.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertCurrent(t, store, accepted.ID)
-	if !reflect.DeepEqual(accepted.AllowedApps, []string{"com.work.chat"}) {
-		t.Fatalf("draft did not inherit an independent policy: %v", accepted.AllowedApps)
+	assertCurrent(t, store, other.ID)
+	if !reflect.DeepEqual(validated.AllowedApps, []string{"com.work.chat"}) {
+		t.Fatalf("draft did not inherit an independent policy: %v", validated.AllowedApps)
 	}
-	if accepted.ParentID != source.ID || accepted.Text != "  first\n\nsecond" {
-		t.Fatalf("incorrect accepted transformation: %+v", accepted)
+	if validated.ParentID != source.ID || validated.Text != "  first\n\nsecond" {
+		t.Fatalf("incorrect validated transformation: %+v", validated)
 	}
-	accepted.AllowedApps[0] = "com.personal.chat"
-	current, _ := store.Current()
-	if !current.Allows("com.work.chat") || current.Allows("com.personal.chat") || current.Allows("") {
-		t.Fatal("returned item mutated current policy, or restricted policy failed open")
-	}
-	original := store.Items()[2]
-	if original.Text != source.Text || original.ParentID != "" {
+	original := store.Items()[1]
+	if original.Text != source.Text || original.ParentID != "" || !original.Allows("com.work.chat") || original.Allows("com.personal.chat") || original.Allows("") {
 		t.Fatal("enhancement changed the original")
 	}
-	if _, err := store.Accept(draft.ID); !errors.Is(err, ErrDraftNotFound) {
-		t.Fatal("accept must consume the draft, preventing duplicate writes")
+	if len(store.Items()) != 2 {
+		t.Fatal("validation created a history record")
 	}
 }
 
@@ -166,7 +161,7 @@ func TestJSONFormattingPreservesNumbersAndRequiresExplicitAcceptance(t *testing.
 	}
 }
 
-func TestAcceptRejectsStaleDraftPolicyWithoutChangingState(t *testing.T) {
+func TestValidationRejectsStaleDraftPolicyWithoutChangingState(t *testing.T) {
 	for _, scenario := range []struct {
 		name   string
 		before []string
@@ -205,10 +200,6 @@ func TestAcceptRejectsStaleDraftPolicyWithoutChangingState(t *testing.T) {
 				t.Fatalf("validation must reject stale policy before a native write: %v", err)
 			}
 			assertCurrent(t, store, other.ID)
-			if _, err := store.Accept(draft.ID); !errors.Is(err, ErrDraftStale) {
-				t.Fatalf("expected stale draft rejection, got %v", err)
-			}
-			assertCurrent(t, store, other.ID)
 			if !reflect.DeepEqual(before, store.Items()) {
 				t.Fatal("rejecting a stale draft changed history")
 			}
@@ -219,12 +210,12 @@ func TestAcceptRejectsStaleDraftPolicyWithoutChangingState(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			accepted, err := store.Accept(fresh.ID)
+			validated, err := store.ValidateDraft(fresh.ID)
 			if err != nil {
-				t.Fatalf("regenerated draft should be accepted: %v", err)
+				t.Fatalf("regenerated draft should be valid: %v", err)
 			}
-			if !reflect.DeepEqual(accepted.AllowedApps, scenario.after) {
-				t.Fatalf("regenerated draft used stale policy: %v", accepted.AllowedApps)
+			if !reflect.DeepEqual(validated.AllowedApps, scenario.after) {
+				t.Fatalf("regenerated draft used stale policy: %v", validated.AllowedApps)
 			}
 		})
 	}
@@ -267,7 +258,7 @@ func TestValidateDraftReturnsTrustedCopyWithoutSelecting(t *testing.T) {
 	assertCurrent(t, store, other.ID)
 }
 
-func TestAcceptRejectsDraftWhoseSourceWasEvicted(t *testing.T) {
+func TestValidationRejectsDraftWhoseSourceWasEvicted(t *testing.T) {
 	store := NewStore(1)
 	source, _ := store.Capture("original  ", "com.editor", false)
 	draft, err := store.Enhance(context.Background(), source.ID, CleanWhitespace)
@@ -278,9 +269,6 @@ func TestAcceptRejectsDraftWhoseSourceWasEvicted(t *testing.T) {
 	before := store.Items()
 	if _, err := store.ValidateDraft(draft.ID); !errors.Is(err, ErrDraftStale) {
 		t.Fatalf("validation accepted an unverifiable source: %v", err)
-	}
-	if _, err := store.Accept(draft.ID); !errors.Is(err, ErrDraftStale) {
-		t.Fatalf("expected unverifiable source to fail closed, got %v", err)
 	}
 	assertCurrent(t, store, current.ID)
 	if !reflect.DeepEqual(before, store.Items()) {
