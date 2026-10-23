@@ -22,8 +22,9 @@ internal/
     appkit/     Source icons, NSMenu, glass, popover appearance and MapKit snapshots
     internal/objc/ Shared low-level runtime helpers
 resources/
-  resources.go Embedded runtime artwork and catalogs
+  resources.go Embedded runtime artwork, fonts and catalogs
   brand/       Approved PNG artwork, menu-bar templates and Copiggy.icon source
+  fonts/       Inter and regional Noto Sans faces, provenance and licenses
   icons/       SVG icons and license
   locales/     Multilingual content-type search and recognition labels
 scripts/
@@ -91,7 +92,7 @@ Builds set `-X github.com/egoist/mygo.production=1` and `mygo_noinspector`. Keep
 
 `mygo.json` is the single source of app identity, version and macOS packaging options. It intentionally has no web frontend command, frontend development server or JavaScript bindings. The pinned MyGo CLI is a Go tool dependency, so the framework and CLI versions stay aligned.
 
-`scripts/package.sh` uses the CLI to create a production bundle in a temporary directory, then normalizes the executable to `copiggy`, verifies metadata and icon resources, removes duplicated embedded source artwork, retains licenses and signs the result again. Only a verified bundle replaces `build/Copiggy.app`; a failed build preserves the previous bundle. The identifier remains `dev.copiggy`. `run.sh` opens that official bundle through Launch Services.
+`scripts/package.sh` uses the CLI to create a production bundle in a temporary directory, then normalizes the executable to `copiggy`, verifies metadata and icon resources, removes duplicated embedded artwork and fonts, retains licenses and signs the result again. Only a verified bundle replaces `build/Copiggy.app`; a failed build preserves the previous bundle. The identifier remains `dev.copiggy`. `run.sh` opens that official bundle through Launch Services.
 
 Packaging requires full Xcode 26 or later for Icon Composer compilation; `DEVELOPER_DIR` is set only for the command when the standard Xcode location is available. The project does not change `xcode-select`. `resources/brand/Copiggy.icon` uses an exact copy of the approved `app-icon.png`, with warm light/dark backgrounds and no added glass, gloss or shadow on the artwork. Apple’s asset compiler produces both `Assets.car` and the ICNS fallback. Bundled launches retain that system icon; only a bare development executable calls `Dock.SetIcon` with the PNG. The application itself still targets macOS 13 or later.
 

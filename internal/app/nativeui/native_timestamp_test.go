@@ -125,7 +125,7 @@ func TestTimestampCounterStaysInsideCardAndPreview(t *testing.T) {
 		}
 		preview := ui.NewTester(s.nativePopoverView, 520, nativeTimestampPreviewHeight)
 		value, valueFound = preview.Find(raw)
-		if !valueFound || value.X != 32 || value.X+value.W > 488 || value.Y < 74 || value.Y+value.H > 200 {
+		if !valueFound || value.X != 30 || value.X+value.W > 490 || value.Y < 72 || value.Y+value.H > 200 {
 			t.Fatalf("counter escaped left-aligned preview reading surface: %+v", value)
 		}
 	}

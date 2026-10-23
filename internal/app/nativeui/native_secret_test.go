@@ -80,7 +80,11 @@ func TestSecretRevealNeverDisplacesMetadataOrInventsProtection(t *testing.T) {
 							format = s.tr("%d digits", secret.Length)
 						}
 						footer, found := tt.Find(format)
-						if !found || footer.Y < float32(height-70) || footer.Y+footer.H > float32(height-20) {
+						metadataBottom := float32(height - 26)
+						if protected {
+							metadataBottom -= 28
+						}
+						if !found || footer.Y < metadataBottom-22 || footer.Y+footer.H > metadataBottom {
 							t.Fatalf("credential displaced format metadata: %+v", footer)
 						}
 						scope := s.tr("Only in %s", "Fixture editor")
@@ -89,7 +93,7 @@ func TestSecretRevealNeverDisplacesMetadataOrInventsProtection(t *testing.T) {
 						}
 						if protected {
 							row, found := tt.Find(scope + " · " + s.tr("Inactive"))
-							if !found || row.Y < float32(height-70) || row.Y+row.H > float32(height-18) {
+							if !found || row.H != 22 || row.Y+row.H != float32(height-26) || row.Y < footer.Y+footer.H+6 {
 								t.Fatalf("protection scope escaped reading surface: %+v", row)
 							}
 						}

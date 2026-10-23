@@ -44,6 +44,7 @@ type Config struct {
 type Controller = application
 
 func New(config Config) *Controller {
+	_ = loadNativeFonts()
 	s := &application{config: config, native: config.Guard, store: config.History,
 		appNames: map[string]string{}, itemSources: map[string]string{}, appIcons: map[string][]byte{}}
 	s.applyPreferences(config.Preferences)

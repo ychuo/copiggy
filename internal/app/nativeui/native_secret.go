@@ -190,15 +190,12 @@ func (s *application) nativeSecretPreview(c *ui.Context, item clipmodel.Item, p 
 		ink = nativeSecretCardColors(item.Type)
 		from, to = ui.Hex("#faf7ff"), ui.Hex("#eeebfc")
 	}
-	readingHeight := height - 128
-	if item.Type == clipmodel.TypeOTP && len(item.AllowedApps) > 0 {
-		readingHeight -= 27
-	}
-	ui.Column(c).Fill().Padding(12, 8, 8).Gap(8).Children(func() {
-		ui.Box(c).Height(nativeControlSize).FillWidth().Padding(0, 14).Children(func() {
+	readingHeight := height - nativePreviewChromeHeight - 2*nativePreviewHeroInset - nativePreviewContentGap - nativePreviewFooterHeight(item, true)
+	nativePreviewLayout(c).Children(func() {
+		nativePreviewToolbarRow(c).Children(func() {
 			s.nativePreviewToolbar(c, item, p)
 		})
-		ui.Column(c).Grow(1).MinHeight(0).FillWidth().Radius(nativePreviewPaperRadius).Clip().Gradient(from, to, 135).Padding(18).Gap(12).TextColor(ink.text).Children(func() {
+		ui.Column(c).Grow(1).MinHeight(0).FillWidth().Radius(nativePreviewPaperRadius).Clip().Gradient(from, to, 135).Padding(nativePreviewHeroInset).Gap(nativePreviewContentGap).TextColor(ink.text).Children(func() {
 			if !valid {
 				ui.Column(c).Grow(1).MinHeight(0).FillWidth().AlignItems(ui.Center).Justify(ui.Center).Children(func() {
 					ui.Text(c, s.tr("Hidden content")).FontSize(nativeTextPreview).TextColor(ink.muted)
@@ -212,7 +209,7 @@ func (s *application) nativeSecretPreview(c *ui.Context, item clipmodel.Item, p 
 				})
 			} else if state.Revealed {
 				ui.Scroll(c).Grow(1).MinHeight(0).FillWidth().Children(func() {
-					ui.Text(c, item.Text).Font(nativeCodeFont).FontSize(14).LineHeight(1.6).FillWidth().Wrap()
+					ui.Text(c, item.Text).Font(nativeCodeFont).Lang(nativeContentLanguage(item.Text)).FontSize(14).LineHeight(1.6).FillWidth().Wrap()
 				})
 			} else {
 				ui.Scroll(c).Grow(1).MinHeight(0).FillWidth().Children(func() {
@@ -232,7 +229,7 @@ func (s *application) nativeSecretPreview(c *ui.Context, item clipmodel.Item, p 
 					})
 				})
 			}
-			ui.Row(c).Height(nativeCompactControl).Shrink(0).Gap(nativeToolbarGap).AlignItems(ui.Center).TextColor(ink.muted).Children(func() {
+			s.nativePreviewFooter(c, item, ink, func() {
 				if item.Type == clipmodel.TypeOTP {
 					if s.nativeCopyButton(c, ink).Clicked() {
 						s.chooseNative(false)
@@ -241,18 +238,15 @@ func (s *application) nativeSecretPreview(c *ui.Context, item clipmodel.Item, p 
 					if valid {
 						label = s.tr("%d digits", value.Secret.Length)
 					}
-					ui.Text(c, label).FontSize(nativeTextMeta).FontWeight(nativeWeightValue).SingleLine()
+					ui.Text(c, label).FontSize(nativeTextMeta).FontWeight(nativeWeightBody).SingleLine()
 					ui.Spacer(c)
 				} else {
-					ui.Box(c).Grow(1).MinWidth(0).Clip().Children(func() { s.nativePreviewScope(c, item, ink) })
+					ui.Spacer(c)
 					if valid {
 						ui.Text(c, s.tr(value.Secret.Kind)).FontSize(nativeTextMeta).FontWeight(nativeWeightBody).Shrink(0).SingleLine()
 					}
 				}
 			})
-			if item.Type == clipmodel.TypeOTP {
-				s.nativePreviewScope(c, item, ink)
-			}
 		})
 	})
 }
@@ -270,7 +264,7 @@ func (s *application) nativeSecretCode(c *ui.Context, secret clipmodel.SecretVal
 	}).Children(func() {
 		centers, step := nativeSecretCodeCenters(width, secret.Length)
 		for index, digit := range secret.Value {
-			ui.Text(c, string(digit)).Absolute().Left(centers[index] - step/2).Top(0).Width(step).Height(lineY - 2).Font(nativeContentFont).FontSize(size).FontWeight(nativeWeightTitle).TextColor(ink.text).FontFeatures("tnum").SingleLine().TextAlign(ui.Center)
+			ui.Text(c, string(digit)).Absolute().Left(centers[index] - step/2).Top(0).Width(step).Height(lineY - 2).FontSize(size).FontWeight(nativeWeightTitle).TextColor(ink.text).FontFeatures("tnum").SingleLine().TextAlign(ui.Center)
 		}
 	})
 }

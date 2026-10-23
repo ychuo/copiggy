@@ -447,9 +447,10 @@ func TestNativeHistoryScrollsWithoutVisibleScrollbar(t *testing.T) {
 	if s.viewState.Scroll.X <= 0 {
 		t.Fatal("hiding the scrollbar disabled horizontal scrolling")
 	}
-	// The strip has 14px bottom spacing. Even during active scrolling, the
-	// native surface must leave this area transparent for AppKit's material.
-	for y := 246; y < 254; y++ {
+	// The shadow fades within the first 10px of the strip's 14px bottom
+	// spacing. The remaining scrollbar band must stay transparent even
+	// during active scrolling; a native thumb would paint across this band.
+	for y := 251; y < 254; y++ {
 		for x := 30; x < 1110; x++ {
 			if tt.Image().RGBAAt(x, y).A != 0 {
 				t.Fatalf("visible scrollbar below cards at %d,%d", x, y)

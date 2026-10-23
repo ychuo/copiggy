@@ -27,30 +27,28 @@ func nativeNoteCard(c *ui.Context, item clipmodel.Item) {
 	if utf8.RuneCountInString(text) < 24 {
 		size, weight = nativeTextTitle, nativeWeightTitle
 	}
-	ui.Text(c, text).Font(nativeContentFont).FontSize(size).FontWeight(weight).LineHeight(1.4).MaxLines(4).Wrap().Fill().MinHeight(0).Clip()
+	nativeContentText(c, text).FontSize(size).FontWeight(weight).LineHeight(1.4).MaxLines(4).Wrap().Fill().MinHeight(0).Clip()
 }
 
 // A note is paper with its original paragraphs, not an editor. The content can
 // scroll while its type and protection metadata stay in their fixed footer.
 func (s *application) nativeNotePreview(c *ui.Context, item clipmodel.Item, p nativeColors) {
 	ink := nativeNoteColors()
-	ui.Column(c).Fill().Padding(12, 8, 8).Gap(8).Children(func() {
-		ui.Box(c).Height(nativeControlSize).Shrink(0).FillWidth().Padding(0, 14).Children(func() {
+	nativePreviewLayout(c).Children(func() {
+		nativePreviewToolbarRow(c).Children(func() {
 			s.nativePreviewToolbar(c, item, p)
 		})
-		ui.Column(c).Grow(1).MinHeight(0).FillWidth().Radius(nativePreviewPaperRadius).Clip().Background(ui.Hex("#fdfbf8")).TextColor(ink.text).Padding(14).Gap(12).Children(func() {
+		ui.Column(c).Grow(1).MinHeight(0).FillWidth().Radius(nativePreviewPaperRadius).Clip().Background(ui.Hex("#fdfbf8")).TextColor(ink.text).Padding(nativePreviewReadingInset).Gap(nativePreviewContentGap).Children(func() {
 			ui.Scroll(c).Grow(1).MinHeight(0).FillWidth().Children(func() {
-				ui.Box(c).FillWidth().Padding(8, 14, 6).Children(func() {
-					ui.Text(c, item.Text).Font(nativeContentFont).FontSize(nativeTextPreview).FontWeight(nativeWeightBody).LineHeight(1.5).FillWidth().Wrap()
+				ui.Box(c).FillWidth().Padding(8, nativePreviewReadingInset, 6).Children(func() {
+					nativeContentText(c, item.Text).FontSize(nativeTextPreview).FontWeight(nativeWeightBody).LineHeight(1.5).FillWidth().Wrap()
 				})
 			})
 			ui.Box(c).Height(.5).Shrink(0).FillWidth().Background(ink.muted.Alpha(.18))
-			ui.Row(c).Height(nativeSourceIconSize).Shrink(0).Gap(nativeToolbarGap).AlignItems(ui.Center).TextColor(ink.muted).Children(func() {
-				nativeGlyph(c, "File", nativeIconSize).TextColor(ink.icon).Shrink(0)
+			s.nativePreviewFooter(c, item, ink, func() {
+				ui.Text(c, s.tr("%d characters", utf8.RuneCountInString(item.Text))).FontSize(nativeTextMeta).FontWeight(nativeWeightBody).FontFeatures("tnum").Grow(1).MinWidth(0).SingleLine()
 				ui.Text(c, s.tr("Plain text")).FontSize(nativeTextMeta).FontWeight(nativeWeightBody).SingleLine().Shrink(0)
-				ui.Spacer(c)
 			})
-			s.nativePreviewScope(c, item, ink)
 		})
 	})
 }

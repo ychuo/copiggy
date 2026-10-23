@@ -266,7 +266,7 @@ func (s *application) nativeLinkActions(c *ui.Context, item clipmodel.Item, p na
 			bitmap = s.nativeState().WebsiteIcons[item.ID]
 		}
 		s.nativeLinkSiteIcon(c, bitmap, nativeToolbarIconSize, p)
-		ui.Text(c, s.nativeLinkLocation(item)).Font(nativeUIFont).FontSize(nativeTextControl).FontWeight(nativeWeightBody).TextColor(p.muted).Grow(1).MinWidth(0).SingleLine()
+		nativeContentText(c, s.nativeLinkLocation(item)).FontSize(nativeTextControl).FontWeight(nativeWeightBody).TextColor(p.muted).Grow(1).MinWidth(0).SingleLine()
 	})
 }
 
@@ -315,7 +315,7 @@ func (s *application) nativeLinkContent(c *ui.Context, item clipmodel.Item, p na
 				if failure != "" {
 					label = failure
 				}
-				ui.Text(c, s.tr(label)).Font(nativeUIFont).FontSize(nativeTextBase).FontWeight(nativeWeightBody).TextColor(ink.muted).Wrap().TextAlign(ui.Center).Role(ui.RoleStatus)
+				ui.Text(c, s.tr(label)).FontSize(nativeTextBase).FontWeight(nativeWeightBody).TextColor(ink.muted).Wrap().TextAlign(ui.Center).Role(ui.RoleStatus)
 				if failure != "" && valid {
 					if s.nativeActionButton(c, "ArrowClockwise", s.tr("Retry"), ink).Clicked() && state != nil {
 						state.action = "retry"

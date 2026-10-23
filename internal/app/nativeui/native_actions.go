@@ -74,6 +74,25 @@ func (s *application) selectNative(index int, keepPreview bool) {
 	s.message = ""
 	s.publish()
 }
+
+func (s *application) selectNativeEdge(last, keepPreview bool) {
+	if len(s.results) == 0 {
+		return
+	}
+	index := 0
+	if last {
+		index = len(s.results) - 1
+	}
+	// The selected endpoint may have been scrolled out of view with the
+	// trackpad. Request its normal reveal animation even without a new selection.
+	s.nativeState().LastSelected = ""
+	if index == s.chosen {
+		s.publish()
+		return
+	}
+	s.selectNative(index, keepPreview)
+}
+
 func (s *application) closeNativePreview() {
 	s.cancelNativeDraft()
 	s.preview = false

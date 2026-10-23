@@ -19,7 +19,7 @@ func nativeColorCaption(value clipmodel.ColorValue) string {
 func nativeColorCard(c *ui.Context, value clipmodel.ColorValue, meta ui.Color) {
 	size := nativeEmailFittedSize(value.HEX, 26, 18, nativeCardSize-2*nativeCardPadding, nativeWeightTitle)
 	ui.Column(c).Fill().Gap(5).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
-		ui.Text(c, value.HEX).Font(nativeContentFont).FontSize(size).FontWeight(nativeWeightTitle).SingleLine().FontFeatures("tnum")
+		ui.Text(c, value.HEX).FontSize(size).FontWeight(nativeWeightTitle).SingleLine().FontFeatures("tnum")
 		ui.Text(c, nativeColorCaption(value)).FontSize(nativeTextMeta).FontWeight(nativeWeightBody).TextColor(meta).SingleLine().FontFeatures("tnum")
 	})
 }
@@ -50,12 +50,9 @@ func (s *application) nativeColorActions(c *ui.Context, item clipmodel.Item, p n
 		nativeGlyph(c, "Palette", nativeToolbarIconSize).TextColor(p.icon)
 		ui.Text(c, s.tr("Color")).FontSize(nativeTextControl).FontWeight(nativeWeightControl).TextColor(p.muted).SingleLine()
 	})
-	ui.Row(c).Height(nativeControlSize).Padding(2).Radius(nativeControlRadius + 2).Background(p.control).Shrink(0).Children(func() {
+	nativeSegmentGroup(c, p).Children(func() {
 		for index, format := range []string{"HEX", "RGB", "HSL"} {
-			button := s.nativeSegment(c, s.tr(format), state.ColorFormat == index, p).Height(nativeControlSize - 4).Width(42).Disabled(s.commandBusy)
-			if state.ColorFormat == index {
-				button.Background(p.hover)
-			}
+			button := s.nativeFormatSegment(c, s.tr(format), state.ColorFormat == index, p).Width(42).Disabled(s.commandBusy)
 			if button.Clicked() {
 				state.ColorFormat = index
 				state.CopyFormat = []clipmodel.CopyFormat{clipmodel.ColorHEX, clipmodel.ColorRGB, clipmodel.ColorHSL}[index]
@@ -81,8 +78,8 @@ func (s *application) nativeColorPreview(c *ui.Context, item clipmodel.Item, p n
 	if state.ColorFormat != 0 {
 		size = 26
 	}
-	ui.Column(c).Fill().Padding(12, 8, 8).Gap(8).Children(func() {
-		ui.Box(c).Height(nativeControlSize).FillWidth().Padding(0, 14).Children(func() {
+	nativePreviewLayout(c).Children(func() {
+		nativePreviewToolbarRow(c).Children(func() {
 			s.nativePreviewToolbar(c, item, p)
 		})
 		// The artwork is a child of the clipping container. A Draw on the
@@ -90,16 +87,16 @@ func (s *application) nativeColorPreview(c *ui.Context, item clipmodel.Item, p n
 		ui.Box(c).Grow(1).MinHeight(0).FillWidth().Radius(nativePreviewPaperRadius).Clip().Children(func() {
 			ui.Column(c).Fill().Draw(func(painter *ui.Painter, bounds ui.Rect) {
 				nativeColorArtwork(painter, bounds, *value)
-			}).Padding(16).Gap(8).TextColor(ink.text).Children(func() {
+			}).Padding(nativePreviewHeroInset).Gap(nativePreviewContentGap).TextColor(ink.text).Children(func() {
 				ui.Column(c).Grow(1).MinHeight(0).FillWidth().Gap(6).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
-					ui.Text(c, label).Font(nativeContentFont).FontSize(size).FontWeight(nativeWeightTitle).LineHeight(1.2).FillWidth().Wrap().TextAlign(ui.Center).FontFeatures("tnum")
+					ui.Text(c, label).FontSize(size).FontWeight(nativeWeightTitle).LineHeight(1.2).FillWidth().Wrap().TextAlign(ui.Center).FontFeatures("tnum")
 					caption := nativeColorCaption(*value)
 					if state.ColorFormat == 1 {
 						caption = value.HEX
 					}
 					ui.Text(c, caption).FontSize(nativeTextPreview).FontWeight(nativeWeightBody).TextColor(ink.muted).FillWidth().Wrap().TextAlign(ui.Center).FontFeatures("tnum")
 				})
-				s.nativePreviewScope(c, item, ink)
+				s.nativePreviewFooter(c, item, ink, nil)
 			})
 		})
 	})

@@ -16,13 +16,24 @@ The values below describe the implemented visual system in **logical macOS point
 | Card spacing | 14 between cards |
 | Card header / footer | 24 / 16 high |
 | Preview toolbar | 30 high; 8 between actions |
+| Preview outer spacing | Top 12; sides and bottom 8; 8 between toolbar, content and an external footer |
 | Preview control radius | 6 |
 | Preview reading-surface radius | 12; background and content use the same contour |
+| Preview content insets | Reading paper and its metadata 14; centered hero content 18; counter data 22; JSON code adds 8 inside its 14-point paper inset; media viewport has no inner inset |
+| Preview content-to-footer gap | 12; the compact email separator uses 8 on each side so a protected short address still fits without scrolling |
+| Preview metadata | Fixed 22-point row; 8 between items; type captions use 11 / 400 |
+| Preview protection | Separate final 22-point row; 6 below metadata; 11 / 400 with the containing surface's ink |
 | Preview structure | Top toolbar, content, then metadata; no bottom copy/close keyboard hints |
 
 Alignment and whitespace establish groups. Do not introduce general-purpose divider lines inside the tray or cards. A fine separator may distinguish a preview's metadata from its reading surface when the approved content design calls for one.
 
 The native NSPopover owns its outline, continuous arrow, screen-edge placement, and relationship to the selected card. An inset content surface ends before the arrow; never append a separately drawn pointer or leave a colored surface accidentally cut off at its base.
+
+All types share `nativePreviewLayout`, `nativePreviewToolbarRow`, and `nativePreviewFooter`. The reading-paper role covers email, date, file path, plain text and JSON; the hero role covers phone, color and credentials; the data role covers timestamps. Role insets describe the containing surface, not spacing inside its illustration. Preview height remains content-specific and linked pages retain a wider viewport. Paper-based types keep metadata inside their surface; image, map and webpage previews keep it below the viewport on glass, aligned with the toolbar's 14-point inset. Do not force an extra metadata row or Copy button onto a type that has neither.
+
+Plain text and JSON share a reading-footer layout: 14-point paper inset, a stationary 22-point metadata row, and a 0.5-point separator with 12-point gaps on both sides. Their footer has no decorative File glyph. Summary information sits at the left, with the type or copy-format state at the right; both use the containing paper's secondary ink. JSON retains a 22-point code inset through an additional 8-point inner padding without shifting the metadata.
+
+The footer never scrolls with content. Protection uses its own final row across all types, with long application names ellipsized and the full label available to accessibility. When the live listener is disabled, a separate Inactive label remains visible at the right even if the application names are long. Preserve existing protection semantics; this layout is not a new authority or enablement indicator.
 
 ## Icons and controls
 
@@ -48,9 +59,13 @@ External actions (Compose Mail, Call, Maps, Calendar, and Finder) use the shared
 
 Interface icons use soft neutral gray, adjusted for the surface underneath. Source application icons keep their original artwork. Lock badges express the actual protection policy; the menu-bar shield follows the live guard listener. Icon-only actions retain concise localized accessibility labels.
 
+Format choices share a 30-point segmented group with 2-point inset, 8-point outer radius and 26-point segments with 6-point radius. Selected segments use the same stronger background and primary ink in both themes; selection is also exposed to accessibility. Color shows HEX / RGB / HSL, timestamp shows s / ms, and phone shows localized Original / Dialing with full accessibility names. These controls retain preview focus and select only the next copied representation. Image Fit remains a reset action, not a format selector.
+
 ## Typography
 
-Use `system-ui` for interface text and prose, allowing Core Text to handle optical sizing and CJK/emoji fallback. Use `monospace` for code and data whose alignment depends on character width. No downloaded font is required. A screenshot cannot establish an exact font family; these choices provide a consistent native implementation.
+Use Inter for Latin interface text and prose, Noto Sans SC for Simplified Chinese, Noto Sans TC for Traditional Chinese, and Noto Sans JP for Japanese. Bundle complete Regular 400 and Medium 500 faces and register them only within the application before rendering; no font installation or runtime download is required. Font sources, versions and licenses live in `resources/fonts/`.
+
+Localized interface text uses the selected language's CJK family. Clipboard content supplies its own language/script hints independently of the menu language; mixed text retains Inter for Latin characters. Shared Han characters cannot always establish a region on their own, so keep a deterministic fallback rather than claiming perfect language detection. Preserve system fallback for emoji and unsupported scripts. Use `monospace` for JSON, credentials and counters whose alignment depends on character width. Native NSMenu labels retain system typography; linked webpages and MapKit labels retain their own rendering.
 
 | Role | Size | Weight |
 | --- | --- | --- |
@@ -65,7 +80,7 @@ Use `system-ui` for interface text and prose, allowing Core Text to handle optic
 
 Use tabular numerals for times and dimensions. Avoid making all copied text bold. Content display typography may be larger when its meaning calls for it, such as an email account, calendar day, telephone number, or color value. Those sizes belong to the content illustration; metadata and controls still use the shared scale.
 
-Action names use secondary text ink, with softer gray reserved for their glyphs. Times, type captions, and explanatory metadata remain regular; medium weight distinguishes a key content value from its caption. Keep the native system font and approved hero sizes rather than making every text role heavier.
+Action names use secondary text ink, with softer gray reserved for their glyphs. Times, type captions, and explanatory metadata remain regular; medium weight distinguishes a key content value from its caption. Keep the shared font families and approved hero sizes rather than making every text role heavier.
 
 Long content must fit, wrap, or scroll deliberately. Rendering never rewrites saved content. Truncation on a card must not prevent access to the complete value in preview.
 
@@ -75,14 +90,17 @@ Separate **application chrome** from **content surfaces**. The tray, popover gla
 
 A content surface owns its background, primary ink, secondary ink, and embedded icon colors together. Never apply light text from the outer dark theme to a pale content surface. Image metadata uses small neutral-gray frosted backplates with readable ink, not full-width black scrims.
 
+All cards share subtle depth with localized corner reflections, not a continuous bright or dark outline. A 0.65-point edge catches white light at the upper-left corner (45% peak opacity) and more faintly at the lower-right (18%); each reflection fades to transparent within 14.4° of its corner direction, leaving the middle of every side unchanged. Neutral outer shadows use `(x, y, blur, spread)` values of `(0, 2, 4, -1)` and `(0, 0.5, 1.5, 0)`, at 8% and 4% opacity in light mode and 10% and 6% in dark mode. They fit within the existing strip padding. Keep the face untinted and render the blue selection over the reflections. Composite content and reflections before applying the outer rounded clip once; paint shadows outside that clip to preserve smooth corners.
+
 Email, phone, coordinates, and date keep their light content materials in both appearances: blue envelope and warm paper for email, pale mint for phone, a light map for coordinates, and warm calendar paper with a coral header for date. File paths keep their warm folder material, verification codes their lavender paper, and private keys their cream sealed-paper cards. Text uses warm note paper and links use warm white paper. JSON, timestamp, and token cards keep dark surfaces; private-key previews use a dark reading surface. Color swatches retain the actual captured color, and images retain their original pixels. Each content surface keeps its recognizable material in both appearances while the surrounding application chrome follows the theme.
 
 ## Interaction and motion
 
 - Selection, preview and format changes do not write to the clipboard. Enter or double-click explicitly copies the selected content, closes the panel, and leaves pasting to the user. With no explicit format choice, copy the exact saved representations. An accepted JSON draft or a chosen color, phone or timestamp format produces plain-text clipboard output without editing the original or adding history. Derive output from the trusted record/draft and inherit its saved allowed apps. Closing or navigating resets the choice; Reveal and zoom never select a copy format.
-- Space or Cmd+Y opens preview; arrow keys navigate cards. Search retains arrow keys for its caret. Toolbar clicks preserve the appropriate history/search focus.
+- Space or Cmd+Y opens preview; arrow keys navigate cards. Cmd+Left / Right selects and reveals the first / last item in the current list, including filtered and pinned results, while preserving an open preview. Search retains plain and modified arrow keys for its caret. Toolbar clicks preserve the appropriate history/search focus.
 - Cmd+P pins or unpins. Cmd+Backspace deletes the selected record unless search owns input. Deletion leaves the system clipboard and its active protection policy unchanged.
 - Pin and Delete are available in preview. The top pin control filters history. Pause/resume, language, and appearance belong in the menu-bar menu.
+- Empty pinned history shows Cmd+P keycaps followed by “Pin a selected history item,” using the same compact hint style as empty history. Search with no matches keeps its search-specific empty state.
 - Use brief native search, scroll, and control transitions; honor Reduce Motion. Hide the history scrollbar without removing scrolling.
 - Routine actions stay quiet. Only protection updates and actionable errors appear briefly beside the menu-bar icon. Do not create tooltip or toast windows.
 
@@ -121,7 +139,7 @@ Keep the diagonal folds continuous and subtle, without a horizontal divider acro
 | Reading surface | 12 corner radius; 14 content inset |
 | Preview account name | 46 / 500; 1.15 line height |
 | Preview domain | 28 / 400; 1.2 line height |
-| Preview address group | Centered; 3-point interline gap; reading-area top inset 20 |
+| Preview address group | Centered; 3-point interline gap; reading-area top inset 14 |
 | Metadata separator | 0.5-point stroke; secondary ink at 18% opacity |
 | Metadata row | 22 high to retain the shared 22-point Copy target; shared metadata type and copy glyph; 8-point gaps |
 
@@ -143,9 +161,9 @@ Phone follows the shared frame, header, source icon, metadata, pin behavior, and
 | Reading surface | `#fbfefa` → `#edf9f2`, 135° |
 | Main ink / secondary ink | `#202a33` / `#697784` |
 | Embedded control ink | Shared light icon ink `#78818b` |
-| Card number | System sans-serif, 24 / 500; 1.15 line height; tabular numerals |
+| Card number | Inter, 24 / 500; 1.15 line height; tabular numerals |
 | Card number fitting | Fit within the shared 156-point content width, down to 14 points |
-| Number placement | 8-point body top inset; a single line adds 14 points to preserve its visual center |
+| Number placement | 6-point body top inset; a single line adds 14 points to preserve its visual center |
 | Dial-pad motif | 3 × 3 circles; diameter 9; pitch 15; first row at y116; ends before the shared metadata row |
 | Dial-pad ink | `#b6e8c6` at 52% opacity |
 
@@ -159,13 +177,13 @@ The card and reading surface retain these mint colors and dark ink in both appea
 | --- | --- |
 | Content size | 520 × 360, subject to available screen space |
 | Outer spacing | Top 12; sides and bottom 8; toolbar-to-paper gap 8 |
-| Reading surface | 12 corner radius; 16 content inset |
-| Display number | 48 / 500; 1.15 line height; tabular numerals; fit down to 24 points within preview width minus 64 |
+| Reading surface | 12 corner radius; shared 18-point hero inset |
+| Display number | 48 / 500; 1.15 line height; tabular numerals; fit down to 24 points within the width remaining after glass and hero insets |
 | Classification | Shared body size 15 / 400; localized Phone or International label |
 | Dialing number | Shared preview size 17 / 400; tabular numerals |
 | Number-to-details gap | 20 |
 | Classification-to-dialing-number gap | 6 |
-| Toolbar | Call, display-format toggle, Pin, Delete, Close; shared 18-point glyphs and 30-point click targets |
+| Toolbar | Call, Original / Dialing segmented choice, Pin, Delete, Close; shared control dimensions |
 
 The format action switches between the original grouping and dialing representation. Choosing Dialing number makes the next Enter copy the normalized dialing number; Original number restores exact-original copying. The switch itself never writes, and neither choice edits the saved record or adds history. Call uses the dialing number. Do not add another Copy button or a divider line to this preview.
 
@@ -216,7 +234,7 @@ Opening Maps is an explicit action. Copy and Enter use the original saved clipbo
 
 A color card is the color itself, with adaptive contrasting ink and no decorative lighting that would alter the swatch. Opaque colors render their exact RGB channels; alpha colors composite over a neutral 12-point checkerboard. Both appearances use the same color surface. Shared card header, source icon and Pin positions stay unchanged.
 
-- Card value: system sans-serif, 26 / 500, measured to fit the shared content width down to 18 points; secondary RGB value uses the shared 11 / 400 metadata scale. Alpha values keep their alpha component in the secondary representation.
+- Card value: Inter, 26 / 500, measured to fit the shared content width down to 18 points; secondary RGB value uses the shared 11 / 400 metadata scale. Alpha values keep their alpha component in the secondary representation.
 - Preview: 520 × 232; the common top-12 / side-and-bottom-8 glass margin, 8-point toolbar gap and 12-point reading-surface radius. Custom swatch painting lives inside the rounded clipping container.
 - Toolbar: Palette and localized Color label, grouped HEX / RGB / HSL display choices, then shared Pin, Delete and Close actions.
 - Preview value: 32 / 500 for HEX; 26 / 500 for RGB or HSL; secondary value 17 / 400. Long format strings wrap within the color surface.
@@ -237,7 +255,7 @@ The card is a single calendar page. Its coral header is 55 points high (about 29
 The timestamp is a dark counter in both appearances, with the original numeric value, scale ticks and a converted-time caption. It uses the same card geometry, metadata rows, Pin and source icon as the other types.
 
 - Card: `#3c4a60` → `#29313b`, 135°; main ink `#f1f5fc`, secondary `#afc0d8`. Counter 22 / 500 monospace for seconds, 17 / 500 for milliseconds. The 17 scale ticks center at y110; the middle tick is taller and brighter.
-- Preview: 520 × 310; common 8-point glass margin, 12-point rounded dark reading surface and 24-point content inset. Counter 42 / 500 monospace, left aligned and measured to fit narrower previews; date and clock 23 / 500; alternate-zone time 15 / 400.
+- Preview: 520 × 310; common 8-point glass margin, 12-point rounded dark reading surface and shared 22-point data inset. Counter 42 / 500 monospace, left aligned and measured to fit narrower previews; date and clock 23 / 500; alternate-zone time 15 / 400.
 - Toolbar: compact s / ms choices with localized full accessibility names, a local/UTC display toggle, then shared Pin, Delete and Close. The local label shows the actual offset for that instant, including daylight-saving rules.
 - Explicit s / ms selection sets the next copy unit; no clipboard write happens until Enter. Milliseconds converted to seconds drop subsecond digits in that output only; choosing milliseconds again derives the complete value from the original. Local/UTC affects only the date explanation and never the copy unit. These choices never replace saved representations, add history or change protection scope. Converted clock time keeps captured subsecond precision even while the number is shown in seconds. When local and UTC fall on different dates, the alternate line includes its date. Date ordering follows the interface language. At reduced heights, the reading area scrolls above the stationary protection scope.
 
@@ -268,7 +286,7 @@ Tokens and private keys retain their distinct cards while sharing a dark, rounde
 - Token card: `#3b444f` → `#272d34`, pale `#dbe2f1` ink and `#b7c0d1` metadata; recognized format appears in the shared footer.
 - Token preview: 520 × 264; common 8-point glass margin and 12-point reading-surface radius; `#343d48` → `#29323d`. Reveal / Hide starts the toolbar, followed by shared Pin, Delete and Close on the right; no redundant Token title. The same multiline abbreviation uses 20 / 500 monospace above actual protection scope and recognized format metadata.
 - Private-key card: warm `#fffaf0` → `#f3e7d1` paper, a top-right fold and a subtle sealed lower flap. The central seal leaves the common Pin anchor clear. These marks are paper decoration, not a claim that Paste Guard is enabled.
-- Private-key preview: 520 × 320, the same dark reading paper. A successfully parsed, allowlisted PEM boundary may appear above and below its abbreviated payload. The toolbar starts with Reveal / Hide; footer shows only actual protection scope and PEM or OpenSSH format.
+- Private-key preview: 520 × 320, the same dark reading paper. A successfully parsed, allowlisted PEM boundary may appear above and below its abbreviated payload. The toolbar starts with Reveal / Hide; footer shows PEM or OpenSSH format at the right, followed by any actual protection scope in the shared separate row. Token previews use the same footer structure.
 - Revealed token/key content uses the exact original text in 14-point monospace with 1.6 line height, scrolling within the fixed reading area. Closing or changing records returns to the abbreviated value. Invalid or stale sensitive annotations fail closed; the concealed middle never enters visible text or accessibility labels before Reveal.
 
 ## Content variation: plain text
@@ -276,8 +294,8 @@ Tokens and private keys retain their distinct cards while sharing a dark, rounde
 Text is a warm note, with the copied prose itself as its main visual element. It uses the common header, source icon, footer and Pin anchor.
 
 - Card: `#fff6e3` → `#ffedcc`; primary ink `#272f3a`, metadata `#6b7584`. Prose is 15 / 400 with four visible lines; short single-line text may use 18 / 500. The footer reads Plain text.
-- Preview: 520 × 328; shared glass margins and a 12-point rounded `#fdfbf8` reading surface. Text uses 17 / 400 with 1.5 line height, retaining original paragraphs in a scrollable reading area.
-- Toolbar: Pin, Delete and Close only. A fine separator precedes the stationary metadata row: File and Plain text on the left. No source icon or application name appears in the preview footer. Any protection scope remains visible below it.
+- Preview: 520 × 328; shared glass margins and a 12-point rounded `#fdfbf8` reading surface with a 14-point inset. Text uses 17 / 400 with 1.5 line height, retaining original paragraphs in a scrollable reading area above the stationary footer.
+- Toolbar: Pin, Delete and Close only. The shared reading-footer separator precedes a 22-point metadata row inside the paper: localized Unicode character count on the left and Plain text on the right. Count the exact original text using the existing character-count semantics. No decorative File glyph, source icon or application name appears in the preview footer. Any protection scope uses its own final row inside the paper.
 - Display and scrolling never change saved content. The card’s source icon continues to identify the real copying application.
 
 ## Content variation: JSON
@@ -285,7 +303,8 @@ Text is a warm note, with the copied prose itself as its main visual element. It
 JSON keeps a charcoal code surface in both appearances, with aligned indentation and violet keys, mint strings and gold values.
 
 - Card: `#353d48` → `#252c35`; default ink `#eef2fa` and metadata `#b7c1d3`. Code uses 11.5 / 400 monospace with 1.4 line height and up to five visible lines. The footer counts top-level properties or array items; scalar values show JSON.
-- Preview: 520 × 328; shared glass margins, 12-point rounded dark reading surface, and 22-point inner content padding. Code preserves alignment and scrolls in both directions. Metadata below the surface shows the property/item count and Original, Formatted draft, or Formatted copy provenance.
+- Preview: 520 × 328; shared glass margins and a 12-point rounded dark reading surface with a 14-point inset. An additional 8-point inner code padding preserves the 22-point code inset. Code uses 14 / 400 monospace, preserves alignment and scrolls in both directions above the stationary footer.
+- Footer: the shared reading-footer separator and 22-point metadata row stay inside the dark paper. The property/item summary sits at the left; Original, Formatted draft, or Formatted copy provenance sits at the right. No decorative File glyph. Any protection scope uses its own final row inside the paper.
 - Toolbar: Format at the left, then shared Pin, Delete and Close. A formatting draft replaces Format with the existing comparison, cancel and explicit confirmation controls.
 - Indentation in the default reading view is presentation only. Explicit Format creates a local, cancellable draft; Return or Copy result writes that draft with the source record’s saved protection scope. Comparing Original displays the exact captured text, and Copy original uses its exact saved representations. Confirming a draft consumes it without editing the source or adding a history record; closing or navigating discards it.
 

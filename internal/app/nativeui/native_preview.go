@@ -10,7 +10,7 @@ import (
 func (s *application) nativePopoverView(c *ui.Context) {
 	state := s.nativeState()
 	p := panelColors(state.Dark)
-	setNativeTheme(c, p, state.Dark)
+	setNativeTheme(c, p, state.Dark, s.currentLanguage())
 	item, ok := s.selected()
 	if !ok {
 		return
@@ -18,7 +18,7 @@ func (s *application) nativePopoverView(c *ui.Context) {
 	semantic := *s.semanticState(item)
 	// Keep this focus target stable across selection, draft comparison and zoom.
 	// Only this native window binds PreviewFocus; the tray owns Focus separately.
-	root := ui.Column(c).Key("native-preview-surface").Fill().Focusable().AutoFocus().Bind(&state.PreviewFocus).Role(ui.RoleDialog).Label(s.tr("Content preview")).TextColor(p.text)
+	root := ui.Column(c).Key("native-preview-surface").Fill().Focusable().AutoFocus().Bind(&state.PreviewFocus).Role(ui.RoleDialog).Label(s.tr("Content preview")).TextColor(p.text).Lang(s.currentLanguage())
 	root.Children(func() {
 		draftID := ""
 		if s.draft != nil {
@@ -72,6 +72,12 @@ func (s *application) nativePopoverView(c *ui.Context) {
 	if c.Shortcut(0, ui.KeySpace) {
 		s.closeNativePreview()
 	}
+	if c.Shortcut(ui.Cmd, ui.KeyLeft) {
+		s.selectNativeEdge(false, true)
+	}
+	if c.Shortcut(ui.Cmd, ui.KeyRight) {
+		s.selectNativeEdge(true, true)
+	}
 	if c.Shortcut(0, ui.KeyLeft) {
 		s.selectNative(max(0, s.chosen-1), true)
 	}
@@ -123,15 +129,50 @@ func (s *application) nativePreviewScope(c *ui.Context, item clipmodel.Item, p n
 	if len(item.AllowedApps) > 0 {
 		color := p.muted
 		scope := s.scopeLabel(item.AllowedApps)
-		if !s.native.Enabled() {
-			scope += " · " + s.tr("Inactive")
+		inactive := !s.native.Enabled()
+		label := scope
+		if inactive {
+			label += " · " + s.tr("Inactive")
 			color = p.warning
 		}
-		ui.Row(c).Gap(5).AlignItems(ui.Center).TextColor(color).Children(func() {
+		ui.Row(c).Label(label).Height(nativePreviewMetadataHeight).Shrink(0).FillWidth().Gap(nativeInlineGap).AlignItems(ui.Center).TextColor(color).Children(func() {
 			nativeGlyph(c, "LockSimple", 13)
-			ui.Text(c, scope).FontSize(nativeTextControl).SingleLine()
+			ui.Text(c, scope).FontSize(nativeTextMeta).FontWeight(nativeWeightBody).Grow(1).MinWidth(0).SingleLine()
+			if inactive {
+				// Keep the live-listener warning visible even when application
+				// names are long. The full scope remains accessible above.
+				ui.Text(c, s.tr("Inactive")).FontSize(nativeTextMeta).FontWeight(nativeWeightBody).Shrink(0).SingleLine()
+			}
 		})
 	}
+}
+
+// Metadata stays outside the scrolling body. Protection always has its own
+// final row, using the ink of the containing paper or glass surface.
+func nativePreviewFooterHeight(item clipmodel.Item, hasMetadata bool) float32 {
+	height := float32(0)
+	if hasMetadata {
+		height = nativePreviewMetadataHeight
+	}
+	if len(item.AllowedApps) > 0 {
+		if hasMetadata {
+			height += nativePreviewScopeGap
+		}
+		height += nativePreviewMetadataHeight
+	}
+	return height
+}
+
+func (s *application) nativePreviewFooter(c *ui.Context, item clipmodel.Item, p nativeColors, content func()) {
+	if content == nil && len(item.AllowedApps) == 0 {
+		return
+	}
+	ui.Column(c).FillWidth().Shrink(0).Gap(nativePreviewScopeGap).TextColor(p.muted).Children(func() {
+		if content != nil {
+			ui.Row(c).Height(nativePreviewMetadataHeight).Shrink(0).FillWidth().Gap(nativeToolbarGap).AlignItems(ui.Center).Children(content)
+		}
+		s.nativePreviewScope(c, item, p)
+	})
 }
 
 func (s *application) nativePreviewToolbar(c *ui.Context, item clipmodel.Item, p nativeColors) {
