@@ -1,11 +1,13 @@
 package nativeui
 
 import (
+	"fmt"
 	"image"
 	"reflect"
 	"strings"
 	"testing"
 
+	"copiggy/internal/clipmodel"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -79,6 +81,55 @@ func TestNotePaperStaysWarmAndRoundedAcrossAppearance(t *testing.T) {
 				if pixels.RGBAAt(x, y) != light.RGBAAt(x, y) {
 					t.Fatalf("note paper typography or surface changes with chrome at %d,%d", x, y)
 				}
+			}
+		}
+	}
+}
+
+// Reading and media surfaces place their footers differently, but long content
+// and application names must never displace metadata or hide the live warning.
+func TestReadingAndMediaPreviewProtectedFooterStaysVisible(t *testing.T) {
+	for _, tc := range []struct {
+		name, raw, metadata string
+		render              func(*application, *ui.Context, clipmodel.Item, nativeColors)
+	}{
+		{"note", strings.Repeat("Keep this paragraph intact.\n", 100), "Plain text", (*application).nativeNotePreview},
+		{"json", `{"long":"` + strings.Repeat("content", 500) + `"}`, "Original", (*application).nativeJSONPreview},
+		{"link", "https://original.example.com/" + strings.Repeat("long-path/", 50), "original.example.com", (*application).nativeLinkPreview},
+	} {
+		for _, dark := range []bool{false, true} {
+			for _, height := range []int{328, 220} {
+				t.Run(fmt.Sprintf("%s/dark=%t/height=%d", tc.name, dark, height), func(t *testing.T) {
+					s, item := semanticPreviewFixture(t, tc.raw)
+					item.AllowedApps = []string{"com.example.Editor", "com.example.Reader"}
+					s.appNames[item.AllowedApps[0]] = strings.Repeat("A long application name ", 16)
+					s.appNames[item.AllowedApps[1]] = "Reader"
+					if item.Type == clipmodel.TypeLink {
+						s.linkPreview = &nativeLinkPreviewState{itemID: item.ID, url: item.Text, current: "https://current.example.com/", target: "https://current.example.com/", failure: "Page unavailable"}
+					}
+					before := s.store.Records()
+					tt := ui.NewTester(func(c *ui.Context) {
+						p := panelColors(dark)
+						setNativeTheme(c, p, dark)
+						tc.render(s, c, item, p)
+					}, 520, height)
+					metadata, ok := tt.Find(tc.metadata)
+					if !ok || metadata.Y < float32(height-80) {
+						t.Fatalf("long content displaced metadata: %+v", metadata)
+					}
+					scopeLabel := s.scopeLabel(item.AllowedApps)
+					scope, ok := tt.Find(scopeLabel + " · Inactive")
+					if !ok || scope.H != nativePreviewMetadataHeight || scope.Y <= metadata.Y+metadata.H || scope.Y+scope.H > float32(height-nativePreviewEdgeInset) {
+						t.Fatalf("scope no longer has a separate fixed footer: scope=%+v metadata=%+v", scope, metadata)
+					}
+					warning, ok := tt.Find("Inactive")
+					if !ok || warning.W <= 0 || warning.X+warning.W > 498 || warning.Y < scope.Y || warning.Y+warning.H > scope.Y+scope.H {
+						t.Fatalf("long scope hides the live warning: %+v", warning)
+					}
+					if !reflect.DeepEqual(before, s.store.Records()) {
+						t.Fatal("footer rendering changed retained content or protection")
+					}
+				})
 			}
 		}
 	}

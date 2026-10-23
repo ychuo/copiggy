@@ -55,7 +55,8 @@ func TestJSONPreviewLongCodeKeepsToolbarAndMetadataStationary(t *testing.T) {
 				}
 				for _, footer := range []string{s.nativeJSONSummary(raw), s.tr("Original")} {
 					r, ok := tt.Find(footer)
-					if !ok || r.Y < nativeJSONPreviewHeight-40 || r.Y+r.H > nativeJSONPreviewHeight-10 {
+					footerBottom := float32(nativeJSONPreviewHeight - nativePreviewEdgeInset - nativePreviewReadingInset)
+					if !ok || r.Y < footerBottom-nativePreviewMetadataHeight || r.Y+r.H > footerBottom {
 						t.Fatalf("long code displaced JSON footer %s: %+v", footer, r)
 					}
 				}

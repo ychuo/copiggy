@@ -59,6 +59,7 @@ Browsing, previewing and choosing a format leave the clipboard unchanged until y
 | Show or hide Copiggy | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>⇧</kbd> <kbd>Space</kbd> |
 | Search | <kbd>⌘</kbd> <kbd>F</kbd> |
 | Navigate cards | <kbd>←</kbd> <kbd>→</kbd> |
+| First / last card | <kbd>⌘</kbd> <kbd>←</kbd> / <kbd>⌘</kbd> <kbd>→</kbd> |
 | Preview | <kbd>Space</kbd> or <kbd>⌘</kbd> <kbd>Y</kbd> |
 | Copy selected clip / chosen format | <kbd>Return</kbd> |
 | Pin or unpin | <kbd>⌘</kbd> <kbd>P</kbd> |

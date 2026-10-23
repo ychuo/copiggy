@@ -43,11 +43,11 @@ func (s *application) nativeImagePreview(c *ui.Context, item clipmodel.Item, p n
 func nativeImagePreviewViewport(width, height float32, protected bool) (float32, float32) {
 	// Padding + toolbar + metadata + the two gaps. A protected record adds one
 	// fixed-height scope row; the image is the only part allowed to shrink.
-	remaining := height - 12 - nativeControlSize - nativeCompactControl - 2*8 - 8
+	remaining := height - nativePreviewChromeHeight - nativePreviewMetadataHeight - nativePreviewSectionGap
 	if protected {
-		remaining -= nativeCompactControl + 8
+		remaining -= nativePreviewMetadataHeight + nativePreviewScopeGap
 	}
-	return float32(max(0, width-16)), float32(max(0, remaining))
+	return float32(max(0, width-2*nativePreviewEdgeInset)), float32(max(0, remaining))
 }
 
 // Use the decoded bitmap dimensions, not a possibly stale metadata hint. Even
@@ -65,8 +65,8 @@ func (s *application) nativeImagePreviewWithBitmap(c *ui.Context, item clipmodel
 	state := s.semanticState(item)
 	width, height := c.Size()
 	viewportW, viewportH := nativeImagePreviewViewport(width, height, len(item.AllowedApps) > 0)
-	ui.Column(c).Fill().Padding(12, 8, 8).Gap(8).Children(func() {
-		ui.Box(c).Height(nativeControlSize).Shrink(0).FillWidth().Padding(0, 14).Children(func() {
+	nativePreviewLayout(c).Children(func() {
+		nativePreviewToolbarRow(c).Children(func() {
 			s.nativePreviewToolbar(c, item, p)
 		})
 		ui.Box(c).Grow(1).MinHeight(0).FillWidth().Radius(nativePreviewPaperRadius).Clip().Children(func() {
@@ -96,15 +96,12 @@ func (s *application) nativeImagePreviewWithBitmap(c *ui.Context, item clipmodel
 				})
 			}
 		})
-		ui.Row(c).Height(nativeCompactControl).Shrink(0).FillWidth().Padding(0, 14).AlignItems(ui.Center).Children(func() {
-			if item.Image != nil {
-				ui.Text(c, fmt.Sprintf("%d × %d · PNG", item.Image.Width, item.Image.Height)).FontSize(nativeTextMeta).FontWeight(nativeWeightBody).FontFeatures("tnum").TextColor(p.muted).SingleLine()
-			}
-		})
-		if len(item.AllowedApps) > 0 {
-			ui.Box(c).Height(nativeCompactControl).Shrink(0).FillWidth().Padding(0, 14).Children(func() {
-				s.nativePreviewScope(c, item, p)
+		ui.Box(c).FillWidth().Shrink(0).Padding(0, nativePreviewReadingInset).Children(func() {
+			s.nativePreviewFooter(c, item, p, func() {
+				if item.Image != nil {
+					ui.Text(c, fmt.Sprintf("%d × %d · PNG", item.Image.Width, item.Image.Height)).FontSize(nativeTextMeta).FontWeight(nativeWeightBody).FontFeatures("tnum").SingleLine()
+				}
 			})
-		}
+		})
 	})
 }

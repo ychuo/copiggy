@@ -43,7 +43,7 @@ func nativeFileDocument(c *ui.Context, extension string, width, height float32) 
 	ui.Box(c).Size(width, height).Shrink(0).Draw(nativeFileDocumentArtwork).Children(func() {
 		if extension != "" {
 			size := nativeEmailFittedSize(extension, width*.2, 5, width-8, nativeWeightValue)
-			ui.Text(c, extension).Absolute().Left(4).Right(4).Bottom(height * .09).Font(nativeUIFont).FontSize(size).FontWeight(nativeWeightValue).TextColor(ui.Hex("#798392")).SingleLine().TextAlign(ui.Center)
+			ui.Text(c, extension).Absolute().Left(4).Right(4).Bottom(height * .09).FontSize(size).FontWeight(nativeWeightValue).TextColor(ui.Hex("#798392")).SingleLine().TextAlign(ui.Center)
 		}
 	})
 }
@@ -88,8 +88,8 @@ func (s *application) nativeFilePathCard(c *ui.Context, item clipmodel.Item, fil
 			if utf8.RuneCountInString(file.Name) > 15 {
 				size = nativeTextBody
 			}
-			ui.Text(c, file.Name).Font(nativeContentFont).FontSize(size).FontWeight(nativeWeightTitle).LineHeight(1.2).MaxLines(2).Wrap().FillWidth()
-			ui.Text(c, path.Base(file.Dir)).Font(nativeContentFont).FontSize(nativeTextControl).FontWeight(nativeWeightBody).TextColor(ink.paperMeta).SingleLine().FillWidth()
+			nativeContentText(c, file.Name).FontSize(size).FontWeight(nativeWeightTitle).LineHeight(1.2).MaxLines(2).Wrap().FillWidth()
+			nativeContentText(c, path.Base(file.Dir)).FontSize(nativeTextControl).FontWeight(nativeWeightBody).TextColor(ink.paperMeta).SingleLine().FillWidth()
 		})
 	})
 }
@@ -98,35 +98,31 @@ func (s *application) nativeFilePathPreview(c *ui.Context, item clipmodel.Item, 
 	_, height := c.Size()
 	file := clipmodel.Analyze(item.Text).FilePath
 	ink := nativeFilePathColors()
-	ui.Column(c).Fill().Padding(12, 8, 8).Gap(8).Children(func() {
-		ui.Box(c).Height(nativeControlSize).FillWidth().Padding(0, 14).Children(func() {
+	nativePreviewLayout(c).Children(func() {
+		nativePreviewToolbarRow(c).Children(func() {
 			s.nativePreviewToolbar(c, item, p)
 		})
-		ui.Column(c).Grow(1).MinHeight(0).FillWidth().Radius(nativePreviewPaperRadius).Clip().Gradient(ui.Hex("#fffefd"), ui.Hex("#f8f9fb"), 135).TextColor(ink.text).Padding(14).Gap(10).Children(func() {
-			contentHeight := height - (12 + nativeControlSize + 8 + 8 + 28 + 10 + nativeCompactControl)
-			if len(item.AllowedApps) > 0 {
-				contentHeight -= 26
-			}
+		ui.Column(c).Grow(1).MinHeight(0).FillWidth().Radius(nativePreviewPaperRadius).Clip().Gradient(ui.Hex("#fffefd"), ui.Hex("#f8f9fb"), 135).TextColor(ink.text).Padding(nativePreviewReadingInset).Gap(nativePreviewContentGap).Children(func() {
+			contentHeight := height - nativePreviewChromeHeight - 2*nativePreviewReadingInset - nativePreviewContentGap - nativePreviewFooterHeight(item, true)
 			ui.Scroll(c).Grow(1).MinHeight(0).FillWidth().Children(func() {
 				ui.Row(c).FillWidth().MinHeight(max(110, contentHeight)).Padding(12, 8).Gap(24).AlignItems(ui.Center).Children(func() {
 					if file == nil {
-						ui.Text(c, item.Text).FontSize(nativeTextPreview).Wrap().FillWidth()
+						nativeContentText(c, item.Text).FontSize(nativeTextPreview).Wrap().FillWidth()
 						return
 					}
 					nativeFileDocument(c, file.Ext, 70, 92)
 					ui.Column(c).Grow(1).MinWidth(0).Gap(10).Children(func() {
-						ui.Text(c, file.Name).Font(nativeContentFont).FontSize(25).FontWeight(nativeWeightTitle).LineHeight(1.2).Wrap().FillWidth()
-						ui.Text(c, file.Path).Font(nativeContentFont).FontSize(nativeTextPreview).FontWeight(nativeWeightBody).LineHeight(1.4).TextColor(ink.muted).Wrap().FillWidth()
+						nativeContentText(c, file.Name).FontSize(25).FontWeight(nativeWeightTitle).LineHeight(1.2).Wrap().FillWidth()
+						nativeContentText(c, file.Path).FontSize(nativeTextPreview).FontWeight(nativeWeightBody).LineHeight(1.4).TextColor(ink.muted).Wrap().FillWidth()
 					})
 				})
 			})
-			ui.Row(c).Height(nativeCompactControl).Shrink(0).Gap(nativeToolbarGap).AlignItems(ui.Center).TextColor(ink.muted).Children(func() {
+			s.nativePreviewFooter(c, item, ink, func() {
 				if s.nativeCopyButton(c, ink).Clicked() {
 					s.chooseNative(false)
 				}
-				ui.Text(c, s.tr("File path")).Font(nativeUIFont).FontSize(nativeTextMeta).FontWeight(nativeWeightValue).SingleLine()
+				ui.Text(c, s.tr("File path")).FontSize(nativeTextMeta).FontWeight(nativeWeightBody).SingleLine()
 			})
-			s.nativePreviewScope(c, item, ink)
 		})
 	})
 }

@@ -52,18 +52,19 @@ func (s *application) nativeSemanticActions(c *ui.Context, item clipmodel.Item, 
 	}
 	switch item.Type {
 	case clipmodel.TypePhone:
-		label := s.tr("Dialing number")
-		if state.Dialing {
-			label = s.tr("Original number")
-		}
-		if s.nativePreviewButton(c, "TextAlignLeft", label, p).Disabled(s.commandBusy).Clicked() {
-			state.Dialing = !state.Dialing
-			state.CopyFormat = ""
-			if state.Dialing {
-				state.CopyFormat = clipmodel.PhoneDialing
+		nativeSegmentGroup(c, p).Children(func() {
+			for index, option := range []struct{ title, label string }{{"Original", "Original number"}, {"Dialing", "Dialing number"}} {
+				button := s.nativeFormatSegment(c, s.tr(option.title), state.Dialing == (index == 1), p).Label(s.tr(option.label)).Disabled(s.commandBusy)
+				if button.Clicked() {
+					state.Dialing = index == 1
+					state.CopyFormat = ""
+					if state.Dialing {
+						state.CopyFormat = clipmodel.PhoneDialing
+					}
+					s.publish()
+				}
 			}
-			s.publish()
-		}
+		})
 	case clipmodel.TypeColor:
 		s.nativeColorActions(c, item, p)
 	case clipmodel.TypeTimestamp:
@@ -95,6 +96,20 @@ func (s *application) nativeSegment(c *ui.Context, label string, selected bool, 
 		button.Background(ui.Transparent)
 	}
 	button.Children(func() { ui.Text(c, label).FontSize(nativeTextControl).FontWeight(nativeWeightControl).SingleLine() })
+	return button
+}
+
+// Format selections share one inset track. A selected format stays distinct
+// from the hover state and keeps the preview's keyboard navigation target.
+func nativeSegmentGroup(c *ui.Context, p nativeColors) ui.Element {
+	return ui.Row(c).Height(nativeControlSize).Padding(2).Radius(nativeControlRadius + 2).Background(p.control).Shrink(0)
+}
+
+func (s *application) nativeFormatSegment(c *ui.Context, label string, selected bool, p nativeColors) ui.Element {
+	button := s.nativeSegment(c, label, false, p).Height(nativeControlSize - 4).Cursor(ui.CursorPointer).Selected(selected)
+	if selected {
+		button.Background(p.hover).TextColor(p.text)
+	}
 	return button
 }
 

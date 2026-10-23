@@ -109,7 +109,7 @@ func (s *application) nativeView(c *ui.Context) {
 		}
 	}
 	p := panelColors(state.Dark)
-	setNativeTheme(c, p, state.Dark)
+	setNativeTheme(c, p, state.Dark, s.currentLanguage())
 	// Keep wheel, trackpad and keyboard scrolling, but paint no scrollbar.
 	theme := *c.Theme()
 	theme.Scrollbar = ui.Transparent
@@ -160,6 +160,18 @@ func (s *application) nativeView(c *ui.Context) {
 				s.deleteNativeItem(item.ID)
 			}
 		}
+		if c.Shortcut(ui.Cmd, ui.KeyLeft) {
+			s.selectNativeEdge(false, s.preview)
+			if !s.preview {
+				state.Focus.Focus(c)
+			}
+		}
+		if c.Shortcut(ui.Cmd, ui.KeyRight) {
+			s.selectNativeEdge(true, s.preview)
+			if !s.preview {
+				state.Focus.Focus(c)
+			}
+		}
 		if c.Shortcut(0, ui.KeyLeft) {
 			s.selectNative(max(0, s.chosen-1), s.preview)
 			if !s.preview {
@@ -192,7 +204,7 @@ func (s *application) nativeView(c *ui.Context) {
 	if searchFocused && c.Shortcut(0, ui.KeyDown) {
 		state.Focus.Focus(c)
 	}
-	ui.Column(c).Fill().Gap(0).Padding(1).TextColor(p.text).Children(func() {
+	ui.Column(c).Fill().Gap(0).Padding(1).TextColor(p.text).Lang(s.currentLanguage()).Children(func() {
 		ui.Row(c).Height(48).Padding(6, nativeTrayInset).Gap(12).AlignItems(ui.Center).Children(func() {
 			searchWidth := float32(nativeControlSize)
 			if state.SearchOpen {
@@ -205,6 +217,10 @@ func (s *application) nativeView(c *ui.Context) {
 					ui.Row(c).Fill().Padding(0, 4, 0, 10).Gap(7).AlignItems(ui.Center).Children(func() {
 						nativeGlyph(c, "MagnifyingGlass", nativeIconSize).TextColor(p.icon)
 						input := ui.TextInputBase(c, &s.query).Bind(&s.search).Grow(1).MinWidth(0).Height(28).FontSize(nativeTextBase).Label(s.tr("Search clipboard history")).Placeholder(s.tr("Search clipboard"))
+						if s.query != "" {
+							font := nativeContentFontFor(s.query, nativeTextBase, nativeWeightBody)
+							input.Font(font.Family).Lang(font.Lang)
+						}
 						if input.Changed() {
 							s.cancelNativeDraft()
 							s.preview = false
@@ -312,7 +328,8 @@ func (s *application) nativeCard(c *ui.Context, index int, item clipmodel.Item, 
 		analysis = clipmodel.Analyze(item.Text)
 	}
 	bg, fg, meta := nativeCardPalette(item.Type, analysis, p)
-	card := ui.Box(c).Key(item.ID).Size(nativeCardSize, nativeCardSize).Shrink(0).Radius(nativeCardRadius).Background(bg).Focusable().FocusRing(false).Role(ui.RoleButton).Label(s.nativeCardLabel(item)).Cursor(ui.CursorPointer).Clip()
+	card := ui.Box(c).Key(item.ID).Size(nativeCardSize, nativeCardSize).Shrink(0).Radius(nativeCardRadius).Focusable().FocusRing(false).Role(ui.RoleButton).Label(s.nativeCardLabel(item)).Cursor(ui.CursorPointer).Clip()
+	nativeCardDepth(card, state.Dark)
 	if index == s.chosen {
 		card.Bind(&state.Focus)
 		if state.LastSelected != item.ID {
@@ -333,11 +350,6 @@ func (s *application) nativeCard(c *ui.Context, index int, item clipmodel.Item, 
 			state.Scroll.ScrollTo(target, 0, ui.Animation{Duration: 190 * time.Millisecond, Ease: ui.EaseOut})
 			state.LastSelected = item.ID
 		}
-		card.DrawOver(func(painter *ui.Painter, r ui.Rect) {
-			// Stroke draws inward already. An extra inset leaves a visible rim
-			// of the card outside the selection, especially around the corners.
-			painter.Stroke(r, p.selection, 20, 3)
-		})
 	}
 	card.Children(func() {
 		// MyGo's current native renderer can reuse stale card contents after a
@@ -347,8 +359,24 @@ func (s *application) nativeCard(c *ui.Context, index int, item clipmodel.Item, 
 			Dark, Preview bool
 			Language      string
 		}{state.Dark, s.preview, s.currentLanguage()}
-		ui.Box(c).Key(contentKey).Fill().Children(func() {
+		// Composite the rectangular artwork first, then let the outer card
+		// apply its rounded coverage once. Repainting a background, artwork
+		// and selection separately through the same mask hardens the corners.
+		content := ui.Box(c).Key(contentKey).Fill().Background(bg).Effect(nativeCardComposite{})
+		if index == s.chosen {
+			content.DrawOver(func(painter *ui.Painter, r ui.Rect) {
+				// Extend only the stroke's outer edge by two device pixels so
+				// its own antialiasing cannot expose a paper-colored rim.
+				// The inner contour stays at exactly three points; the card
+				// clip owns the visible outer contour and its antialiasing.
+				bleed := 2 / painter.Scale()
+				r.X, r.Y, r.W, r.H = r.X-bleed, r.Y-bleed, r.W+2*bleed, r.H+2*bleed
+				painter.Stroke(r, p.selection, nativeCardRadius+bleed, 3+bleed)
+			})
+		}
+		content.Children(func() {
 			s.nativeCardContent(c, card, index, item, analysis, fg, meta, p)
+			nativeCardEdgeLight(c)
 		})
 	})
 	if card.Clicked() {
@@ -564,7 +592,7 @@ func nativeJSONText(c *ui.Context, text string, dark bool) ui.Element {
 	if last < len(text) {
 		spans = append(spans, ui.Span{Text: text[last:]})
 	}
-	return ui.RichText(c, spans...)
+	return ui.RichText(c, spans...).Lang(nativeContentLanguage(text))
 }
 
 func (s *application) nativeEmpty(c *ui.Context, p nativeColors) {
@@ -593,8 +621,12 @@ func (s *application) nativeEmpty(c *ui.Context, p nativeColors) {
 			text = s.tr("Recording paused")
 		}
 		ui.Text(c, text).FontSize(15)
-		if s.query == "" && s.monitoring && !s.nativeState().PinnedOnly {
-			nativeHint(c, []string{"⌃", "⌘", "C"}, s.tr("Copy for this app only"), p)
+		if s.query == "" {
+			if state.PinnedOnly {
+				nativeHint(c, []string{"⌘", "P"}, s.tr("Pin a selected history item"), p)
+			} else if s.monitoring {
+				nativeHint(c, []string{"⌃", "⌘", "C"}, s.tr("Copy for this app only"), p)
+			}
 		}
 	})
 }

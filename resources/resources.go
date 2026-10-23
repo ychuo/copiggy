@@ -29,3 +29,9 @@ var Brand embed.FS
 //
 //go:embed brand/app-icon.png
 var AppIcon []byte
+
+// Fonts contains the full-glyph Regular and Medium faces used by native text.
+// Registration is process-local; installation and network access are unnecessary.
+//
+//go:embed fonts/*/*.ttf
+var Fonts embed.FS

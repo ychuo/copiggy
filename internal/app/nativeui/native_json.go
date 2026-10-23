@@ -70,24 +70,23 @@ func (s *application) nativeJSONPreview(c *ui.Context, item clipmodel.Item, p na
 		}
 	}
 	ink := nativeJSONColors()
-	ui.Column(c).Fill().Padding(12, 8, 8).Gap(8).Children(func() {
-		ui.Box(c).Height(nativeControlSize).Shrink(0).FillWidth().Padding(0, 14).Children(func() {
+	nativePreviewLayout(c).Children(func() {
+		nativePreviewToolbarRow(c).Children(func() {
 			s.nativePreviewToolbar(c, item, p)
 		})
-		ui.Column(c).Grow(1).MinHeight(0).FillWidth().Radius(nativePreviewPaperRadius).Clip().Gradient(ui.Hex("#343b45"), ui.Hex("#272e37"), 135).TextColor(ink.text).Padding(22).Children(func() {
+		ui.Column(c).Grow(1).MinHeight(0).FillWidth().Radius(nativePreviewPaperRadius).Clip().Gradient(ui.Hex("#343b45"), ui.Hex("#272e37"), 135).TextColor(ink.text).Padding(nativePreviewReadingInset).Gap(nativePreviewContentGap).Children(func() {
 			ui.ScrollBoth(c).Grow(1).MinHeight(0).FillWidth().Children(func() {
 				// Keep indentation and long values intact. Horizontal scrolling
 				// avoids making deeply nested code collide with the fixed footer.
-				nativeJSONText(c, display, true).Font(nativeCodeFont).FontSize(14).FontWeight(nativeWeightBody).LineHeight(1.5)
+				ui.Box(c).Padding(nativePreviewDataInset - nativePreviewReadingInset).Children(func() {
+					nativeJSONText(c, display, true).Font(nativeCodeFont).FontSize(14).FontWeight(nativeWeightBody).LineHeight(1.5)
+				})
 			})
-		})
-		ui.Column(c).FillWidth().Shrink(0).Padding(0, 14, 2).Gap(6).TextColor(p.muted).Children(func() {
-			ui.Row(c).Height(nativeCompactControl).Shrink(0).Gap(nativeToolbarGap).AlignItems(ui.Center).Children(func() {
-				nativeGlyph(c, "File", nativeIconSize).TextColor(p.icon).Shrink(0)
+			ui.Box(c).Height(.5).Shrink(0).FillWidth().Background(ink.muted.Alpha(.18))
+			s.nativePreviewFooter(c, item, ink, func() {
 				ui.Text(c, s.nativeJSONSummary(text)).FontSize(nativeTextMeta).FontWeight(nativeWeightBody).Grow(1).MinWidth(0).SingleLine()
 				ui.Text(c, provenance).FontSize(nativeTextMeta).FontWeight(nativeWeightBody).Shrink(0).SingleLine()
 			})
-			s.nativePreviewScope(c, item, p)
 		})
 	})
 }

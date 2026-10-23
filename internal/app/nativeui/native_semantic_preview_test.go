@@ -36,7 +36,7 @@ func TestSemanticPreviewToolbarFitsLanguagesAndThemes(t *testing.T) {
 		actions []string
 	}{
 		{"hello@example.com", clipmodel.TypeEmail, []string{"Mail"}},
-		{"+1 (202) 555-0148", clipmodel.TypePhone, []string{"Call", "Dialing number"}},
+		{"+1 (202) 555-0148", clipmodel.TypePhone, []string{"Call", "Original number", "Dialing number"}},
 		{"31.2304, 121.4737", clipmodel.TypeCoordinates, []string{"Maps"}},
 		{"2026-10-22T15:30:00+08:00", clipmodel.TypeDate, []string{"Calendar"}},
 		{"1792645800", clipmodel.TypeTimestamp, []string{"Seconds", "Milliseconds", "Local time"}},
@@ -73,6 +73,49 @@ func TestSemanticPreviewToolbarFitsLanguagesAndThemes(t *testing.T) {
 						previous = r
 					}
 					assertNativeCurrent(t, s, item.ID)
+				})
+			}
+		}
+	}
+}
+
+func TestPreviewFormatChoiceStaysVisibleAfterPointerLeaves(t *testing.T) {
+	for _, tc := range []struct {
+		text, first, second string
+	}{
+		{"#D78379", "HEX", "RGB"},
+		{"1792645800", "Seconds", "Milliseconds"},
+		{"+1 (202) 555-0148", "Original number", "Dialing number"},
+	} {
+		for _, language := range []string{"en", "zh-Hans", "zh-Hant", "ja"} {
+			for _, dark := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s/%s/dark=%t", tc.first, language, dark), func(t *testing.T) {
+					s, item := semanticPreviewFixture(t, tc.text)
+					s.language, s.viewState.Dark = language, dark
+					width, height := nativeContentPreviewSize(item.Type)
+					tt := ui.NewTester(s.nativePopoverView, width, height)
+					first, firstFound := tt.Find(s.tr(tc.first))
+					second, secondFound := tt.Find(s.tr(tc.second))
+					if !firstFound || !secondFound || first.H != 26 || second.H != 26 || first.Y != 14 || second.Y != first.Y {
+						t.Fatalf("format choices lost shared inset or target height: first=%+v second=%+v", first, second)
+					}
+					before := tt.Image()
+					selectedInk := before.RGBAAt(int(first.X+first.W/2), int(first.Y+3))
+					idleInk := before.RGBAAt(int(second.X+second.W/2), int(second.Y+3))
+					if selectedInk == idleInk {
+						t.Fatal("current format has no persistent selection background")
+					}
+					if err := tt.Click(s.tr(tc.second)); err != nil {
+						t.Fatal(err)
+					}
+					tt.Move(float32(width-1), float32(height-1))
+					after := tt.Image()
+					if after.RGBAAt(int(first.X+first.W/2), int(first.Y+3)) != idleInk || after.RGBAAt(int(second.X+second.W/2), int(second.Y+3)) != selectedInk {
+						t.Fatal("selection did not follow the chosen format after hover ended")
+					}
+					if !tt.Focused(s.tr("Content preview")) {
+						t.Fatal("format selection displaced preview keyboard navigation")
+					}
 				})
 			}
 		}

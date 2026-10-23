@@ -80,13 +80,17 @@ test "$(/usr/libexec/PlistBuddy -c 'Print :LSUIElement' "$copiggy_plist")" = tru
 mv "$copiggy_bundle/Contents/MacOS/Copiggy" "$copiggy_bundle/Contents/MacOS/copiggy"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleExecutable copiggy' "$copiggy_plist"
 
-# Runtime artwork and catalogs are embedded by resources/resources.go. Keep
+# Runtime artwork, fonts and catalogs are embedded by resources/resources.go. Keep
 # their licenses, but do not ship duplicate assets or Icon Composer sources.
 mkdir -p "$copiggy_resources/licenses"
 cp resources/icons/LICENSE "$copiggy_resources/licenses/Phosphor.txt"
+cp resources/fonts/inter/OFL.txt "$copiggy_resources/licenses/Inter.txt"
+cp resources/fonts/noto-sans-sc/OFL.txt "$copiggy_resources/licenses/NotoSansSC.txt"
+cp resources/fonts/noto-sans-tc/OFL.txt "$copiggy_resources/licenses/NotoSansTC.txt"
+cp resources/fonts/noto-sans-jp/OFL.txt "$copiggy_resources/licenses/NotoSansJP.txt"
 copiggy_mygo=$(go list -m -f '{{.Dir}}' github.com/egoist/mygo)
 cp "$copiggy_mygo/LICENSE" "$copiggy_resources/licenses/MyGo.txt"
-rm -rf "$copiggy_resources/brand" "$copiggy_resources/icons" "$copiggy_resources/locales"
+rm -rf "$copiggy_resources/brand" "$copiggy_resources/icons" "$copiggy_resources/locales" "$copiggy_resources/fonts"
 rm -f "$copiggy_resources/resources.go"
 /usr/bin/plutil -lint "$copiggy_plist"
 /usr/bin/codesign --force --deep --sign "$copiggy_signing" "$copiggy_bundle"

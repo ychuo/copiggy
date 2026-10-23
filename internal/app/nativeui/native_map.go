@@ -11,8 +11,8 @@ import (
 const (
 	nativeMapPreviewWidth     = 520
 	nativeMapPreviewHeight    = 264
-	nativeMapImageWidth       = nativeMapPreviewWidth - 16
-	nativeMapImageHeight      = nativeMapPreviewHeight - 12 - nativeControlSize - 16 - nativeCompactControl - 8
+	nativeMapImageWidth       = nativeMapPreviewWidth - 2*nativePreviewEdgeInset
+	nativeMapImageHeight      = nativeMapPreviewHeight - nativePreviewChromeHeight - nativePreviewSectionGap - nativePreviewMetadataHeight
 	nativeMapAttributionInset = 24
 )
 
@@ -69,8 +69,8 @@ func (s *application) nativeMapPreview(c *ui.Context, item clipmodel.Item, p nat
 	state := s.semanticState(item)
 	bitmap := s.nativeMapPreviewBitmap(item, state.MapZoom)
 	ink := nativeMapColors()
-	ui.Column(c).Fill().Padding(12, 8, 8).Gap(8).Children(func() {
-		ui.Box(c).Height(nativeControlSize).FillWidth().Padding(0, 14).Children(func() {
+	nativePreviewLayout(c).Children(func() {
+		nativePreviewToolbarRow(c).Children(func() {
 			s.nativePreviewToolbar(c, item, p)
 		})
 		ui.Box(c).Grow(1).MinHeight(80).FillWidth().Radius(nativePreviewPaperRadius).Clip().Background(ink.paper).Label(s.tr("Map preview")).Children(func() {
@@ -96,15 +96,14 @@ func (s *application) nativeMapPreview(c *ui.Context, item clipmodel.Item, p nat
 				})
 			}
 		})
-		ui.Row(c).Height(nativeCompactControl).Shrink(0).Padding(0, 14).Gap(nativeToolbarGap).AlignItems(ui.Center).TextColor(p.muted).Children(func() {
-			if s.nativeCopyButton(c, p).Clicked() {
-				s.chooseNative(false)
-			}
-			ui.Text(c, strings.TrimSpace(item.Text)).FontSize(nativeTextMeta).FontWeight(nativeWeightValue).FontFeatures("tnum").Grow(1).MinWidth(0).SingleLine()
-			ui.Text(c, "WGS 84").FontSize(nativeTextMeta).FontWeight(nativeWeightBody).Shrink(0).SingleLine()
+		ui.Box(c).FillWidth().Shrink(0).Padding(0, nativePreviewReadingInset).Children(func() {
+			s.nativePreviewFooter(c, item, p, func() {
+				if s.nativeCopyButton(c, p).Clicked() {
+					s.chooseNative(false)
+				}
+				ui.Text(c, strings.TrimSpace(item.Text)).FontSize(nativeTextMeta).FontWeight(nativeWeightValue).FontFeatures("tnum").Grow(1).MinWidth(0).SingleLine()
+				ui.Text(c, "WGS 84").FontSize(nativeTextMeta).FontWeight(nativeWeightBody).Shrink(0).SingleLine()
+			})
 		})
-		if len(item.AllowedApps) > 0 {
-			ui.Box(c).FillWidth().Padding(0, 14).Children(func() { s.nativePreviewScope(c, item, p) })
-		}
 	})
 }

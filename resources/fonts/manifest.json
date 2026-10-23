@@ -1,0 +1,146 @@
+{
+  "repository": "https://github.com/google/fonts",
+  "commit": "e7db6ca603fd4862010383ff17ffd6cc4ffac1c0",
+  "tool": "fontTools 4.60.2 varLib.instancer",
+  "fonts": [
+    {
+      "source": {
+        "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/inter/Inter[opsz,wght].ttf",
+        "sha256": "29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031",
+        "bytes": 876576
+      },
+      "license": "inter/OFL.txt",
+      "instances": [
+        {
+          "file": "inter/Inter-Regular.ttf",
+          "family": "Inter",
+          "postscript_name": "Inter-Regular",
+          "axes": {
+            "wght": 400,
+            "opsz": 14
+          },
+          "sha256": "0b59f6b6fc9e8a9ad8032802d1797c4237d9288a3e7b7661517070627b577060",
+          "bytes": 341396,
+          "glyphs": 2933,
+          "unicode_mappings": 2849
+        },
+        {
+          "file": "inter/Inter-Medium.ttf",
+          "family": "Inter",
+          "postscript_name": "Inter-Medium",
+          "axes": {
+            "wght": 500,
+            "opsz": 14
+          },
+          "sha256": "8999f916eb8d3c9c7094ad352846801099d5736287065ef1e87cb49c204df10d",
+          "bytes": 342004,
+          "glyphs": 2933,
+          "unicode_mappings": 2849
+        }
+      ]
+    },
+    {
+      "source": {
+        "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/notosanssc/NotoSansSC[wght].ttf",
+        "sha256": "a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da",
+        "bytes": 17772300
+      },
+      "license": "noto-sans-sc/OFL.txt",
+      "instances": [
+        {
+          "file": "noto-sans-sc/NotoSansSC-Regular.ttf",
+          "family": "Noto Sans SC",
+          "postscript_name": "NotoSansSC-Regular",
+          "axes": {
+            "wght": 400
+          },
+          "sha256": "eeb06b8a64fd04a2744d95579db1571b51027cda61ed78c62e4b730791525461",
+          "bytes": 10595932,
+          "glyphs": 31036,
+          "unicode_mappings": 30890
+        },
+        {
+          "file": "noto-sans-sc/NotoSansSC-Medium.ttf",
+          "family": "Noto Sans SC",
+          "postscript_name": "NotoSansSC-Medium",
+          "axes": {
+            "wght": 500
+          },
+          "sha256": "d27380295503318833e1533734f4d147af6b2857eadae930f9f0c4e3e02ff8b2",
+          "bytes": 10589136,
+          "glyphs": 31036,
+          "unicode_mappings": 30890
+        }
+      ]
+    },
+    {
+      "source": {
+        "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/notosanstc/NotoSansTC[wght].ttf",
+        "sha256": "864727d210d54f2537bbe23b3a839436c3992af72de9322af5270897246bd44f",
+        "bytes": 11941968
+      },
+      "license": "noto-sans-tc/OFL.txt",
+      "instances": [
+        {
+          "file": "noto-sans-tc/NotoSansTC-Regular.ttf",
+          "family": "Noto Sans TC",
+          "postscript_name": "NotoSansTC-Regular",
+          "axes": {
+            "wght": 400
+          },
+          "sha256": "82559d4a2ab69224de5cb6191ddf40b0027c4b519ff891e9342d354045285014",
+          "bytes": 7149180,
+          "glyphs": 20950,
+          "unicode_mappings": 20745
+        },
+        {
+          "file": "noto-sans-tc/NotoSansTC-Medium.ttf",
+          "family": "Noto Sans TC",
+          "postscript_name": "NotoSansTC-Medium",
+          "axes": {
+            "wght": 500
+          },
+          "sha256": "f08fd949a98bd2899a0893cfe11cf927656e999f0350d108977294247be0871d",
+          "bytes": 7145304,
+          "glyphs": 20950,
+          "unicode_mappings": 20745
+        }
+      ]
+    },
+    {
+      "source": {
+        "url": "https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/notosansjp/NotoSansJP[wght].ttf",
+        "sha256": "c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f",
+        "bytes": 9589900
+      },
+      "license": "noto-sans-jp/OFL.txt",
+      "instances": [
+        {
+          "file": "noto-sans-jp/NotoSansJP-Regular.ttf",
+          "family": "Noto Sans JP",
+          "postscript_name": "NotoSansJP-Regular",
+          "axes": {
+            "wght": 400
+          },
+          "sha256": "57458d02bb14502d7ae98abe1e2f79b52783ceda9e4628df145faae23a3d31d2",
+          "bytes": 5766884,
+          "glyphs": 17936,
+          "unicode_mappings": 16732
+        },
+        {
+          "file": "noto-sans-jp/NotoSansJP-Medium.ttf",
+          "family": "Noto Sans JP",
+          "postscript_name": "NotoSansJP-Medium",
+          "axes": {
+            "wght": 500
+          },
+          "sha256": "6680ff209a1577fa7d0516ea61b7c872285da98851c780352a21915d64bb289d",
+          "bytes": 5763440,
+          "glyphs": 17936,
+          "unicode_mappings": 16732
+        }
+      ]
+    }
+  ],
+  "total_font_bytes": 47693276
+}

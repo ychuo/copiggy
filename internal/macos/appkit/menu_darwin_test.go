@@ -5,8 +5,101 @@ package appkit
 import (
 	"testing"
 
+	nativeobjc "copiggy/internal/macos/internal/objc"
+	"github.com/ebitengine/purego/objc"
 	"github.com/egoist/mygo"
 )
+
+// Construct menu objects only: no menu is shown, no event is posted, and the
+// target only records a selection instead of running an application action.
+func TestStatusMenuSpaceGlyphPreservesNativeShortcut(t *testing.T) {
+	if err := initStatusMenuNative(); err != nil {
+		t.Fatal(err)
+	}
+	nativeobjc.WithPool(func() {
+		target := nativeobjc.Send(nativeobjc.Send(uintptr(statusMenuNative.targetClass), objc.RegisterName("alloc")), objc.RegisterName("init"))
+		defer nativeobjc.Send(target, objc.RegisterName("release"))
+		selection := &statusMenuSelection{ids: make(map[uintptr]string)}
+		statusMenuSelections[target] = selection
+		defer delete(statusMenuSelections, target)
+		modifiers := MenuControl | MenuOption | MenuShift
+		menu, err := buildStatusMenu([]MenuEntry{
+			{ID: "open", Label: "Open Clipboard", Key: " ", Modifiers: modifiers},
+			{ID: "quit", Label: "Quit Copiggy", Key: "q", Modifiers: MenuCommand},
+		}, "", 0, target, selection)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer nativeobjc.Send(menu, objc.RegisterName("release"))
+		var visible, shortcut, quit uintptr
+		for i, count := uintptr(0), nativeobjc.Send(menu, objc.RegisterName("numberOfItems")); i < count; i++ {
+			item := nativeobjc.Send(menu, objc.RegisterName("itemAtIndex:"), i)
+			key := nativeobjc.String(nativeobjc.Send(item, objc.RegisterName("keyEquivalent")))
+			switch key {
+			case "␣":
+				visible = item
+			case " ":
+				shortcut = item
+			case "q":
+				quit = item
+			}
+		}
+		if visible == 0 || shortcut == 0 || quit == 0 {
+			t.Fatalf("Space must have a visible glyph and real native equivalent; visible=%v shortcut=%v quit=%v", visible != 0, shortcut != 0, quit != 0)
+		}
+		if nativeobjc.Send(visible, objc.RegisterName("isHidden")) != 0 ||
+			nativeobjc.Send(visible, objc.RegisterName("allowsAutomaticKeyEquivalentLocalization")) != 0 {
+			t.Fatal("Space glyph must remain visible and must not be remapped by keyboard layout")
+		}
+		if nativeobjc.Send(shortcut, objc.RegisterName("isHidden")) == 0 ||
+			nativeobjc.Send(shortcut, objc.RegisterName("allowsKeyEquivalentWhenHidden")) == 0 {
+			t.Fatal("real Space equivalent must work without creating a duplicate visible row")
+		}
+		for _, item := range []uintptr{visible, shortcut} {
+			if got := nativeobjc.Send(item, objc.RegisterName("keyEquivalentModifierMask")); got != uintptr(modifiers) {
+				t.Fatalf("Space modifiers = %x, want %x", got, modifiers)
+			}
+			if got := nativeobjc.String(nativeobjc.Send(item, objc.RegisterName("title"))); got != "Open Clipboard" {
+				t.Fatalf("shortcut was appended to title: %q", got)
+			}
+			selection.selected = ""
+			action := objc.SEL(nativeobjc.Send(item, objc.RegisterName("action")))
+			nativeobjc.Send(nativeobjc.Send(item, objc.RegisterName("target")), action, item)
+			if selection.selected != "open" {
+				t.Fatalf("Space item dispatched %q, want open", selection.selected)
+			}
+		}
+		if nativeobjc.Send(quit, objc.RegisterName("isHidden")) != 0 ||
+			nativeobjc.Send(quit, objc.RegisterName("keyEquivalentModifierMask")) != uintptr(MenuCommand) {
+			t.Fatal("ordinary command shortcut changed")
+		}
+	})
+}
+
+func TestStatusMenuDisabledSpaceCannotDispatch(t *testing.T) {
+	if err := initStatusMenuNative(); err != nil {
+		t.Fatal(err)
+	}
+	nativeobjc.WithPool(func() {
+		selection := &statusMenuSelection{ids: make(map[uintptr]string)}
+		menu, err := buildStatusMenu([]MenuEntry{
+			{ID: "open", Label: "Open Clipboard", Key: " ", Modifiers: MenuControl | MenuOption | MenuShift, Disabled: true},
+		}, "", 0, 0, selection)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer nativeobjc.Send(menu, objc.RegisterName("release"))
+		if count := nativeobjc.Send(menu, objc.RegisterName("numberOfItems")); count != 2 {
+			t.Fatalf("expected visible Space glyph and hidden shortcut, got %d items", count)
+		}
+		for i := uintptr(0); i < 2; i++ {
+			item := nativeobjc.Send(menu, objc.RegisterName("itemAtIndex:"), i)
+			if nativeobjc.Send(item, objc.RegisterName("isEnabled")) != 0 || nativeobjc.Send(item, objc.RegisterName("action")) != 0 {
+				t.Fatal("disabled Space item or its shortcut can still dispatch")
+			}
+		}
+	})
+}
 
 func TestStatusMenuAnchorUsesPrimaryScreenCoordinates(t *testing.T) {
 	for _, test := range []struct {

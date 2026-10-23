@@ -43,22 +43,16 @@ func (s *application) nativeTimestampCard(c *ui.Context, item clipmodel.Item, st
 	local := stamp.Time.In(time.Local)
 	ui.Box(c).Fill().Children(func() {
 		ui.Text(c, strings.TrimSpace(item.Text)).Absolute().Top(18).Left(0).Right(0).Font(nativeCodeFont).FontSize(size).FontWeight(nativeWeightTitle).FontFeatures("tnum").LineHeight(1.15).SingleLine().TextAlign(ui.Center)
-		ui.Text(c, local.Format(s.tr("Jan 2"))+" · "+local.Format("15:04")).Absolute().Top(76).Left(0).Right(0).Font(nativeContentFont).FontSize(nativeTextControl).FontWeight(nativeWeightBody).FontFeatures("tnum").TextColor(ink.paperMeta).SingleLine().TextAlign(ui.Center)
+		ui.Text(c, local.Format(s.tr("Jan 2"))+" · "+local.Format("15:04")).Absolute().Top(76).Left(0).Right(0).FontSize(nativeTextControl).FontWeight(nativeWeightBody).FontFeatures("tnum").TextColor(ink.paperMeta).SingleLine().TextAlign(ui.Center)
 	})
 }
 
 func (s *application) nativeTimestampActions(c *ui.Context, item clipmodel.Item, p nativeColors) {
 	state := s.semanticState(item)
-	ui.Row(c).Height(nativeControlSize).Radius(nativeControlRadius).Background(p.control).Shrink(0).Children(func() {
+	nativeSegmentGroup(c, p).Children(func() {
 		for index, unit := range []struct{ symbol, label string }{{"s", "Seconds"}, {"ms", "Milliseconds"}} {
 			selected := state.Milliseconds == (index == 1)
-			button := ui.ButtonBase(c).Label(s.tr(unit.label)).Size(36, nativeControlSize).Radius(nativeControlRadius).KeepFocus().Disabled(s.commandBusy).AlignItems(ui.Center).Justify(ui.Center).TextColor(p.muted).Background(ui.Transparent)
-			if selected || button.Hovered() {
-				button.Background(p.control).TextColor(p.text)
-			}
-			button.Children(func() {
-				ui.Text(c, unit.symbol).FontSize(nativeTextControl).FontWeight(nativeWeightControl).SingleLine()
-			})
+			button := s.nativeFormatSegment(c, unit.symbol, selected, p).Label(s.tr(unit.label)).Width(36).Disabled(s.commandBusy)
 			if button.Clicked() {
 				state.Milliseconds = index == 1
 				state.CopyFormat = clipmodel.TimestampSeconds
@@ -115,14 +109,14 @@ func (s *application) nativeTimestampPreview(c *ui.Context, item clipmodel.Item,
 	width, height := c.Size()
 	stamp := clipmodel.Analyze(item.Text).Timestamp
 	state, ink := s.semanticState(item), nativeTimestampColors()
-	ui.Column(c).Fill().Padding(12, 8, 8).Gap(8).Children(func() {
-		ui.Box(c).Height(nativeControlSize).FillWidth().Padding(0, 14).Children(func() {
+	nativePreviewLayout(c).Children(func() {
+		nativePreviewToolbarRow(c).Children(func() {
 			s.nativePreviewToolbar(c, item, p)
 		})
-		ui.Column(c).Grow(1).MinHeight(0).FillWidth().Radius(nativePreviewPaperRadius).Clip().Gradient(ui.Hex("#2c3541"), ui.Hex("#3d5273"), 135).TextColor(ink.text).Padding(24).Gap(12).Children(func() {
-			contentHeight := height - (12 + nativeControlSize + 8 + 8 + 48)
+		ui.Column(c).Grow(1).MinHeight(0).FillWidth().Radius(nativePreviewPaperRadius).Clip().Gradient(ui.Hex("#2c3541"), ui.Hex("#3d5273"), 135).TextColor(ink.text).Padding(nativePreviewDataInset).Gap(nativePreviewContentGap).Children(func() {
+			contentHeight := height - (nativePreviewChromeHeight + 2*nativePreviewDataInset)
 			if len(item.AllowedApps) > 0 {
-				contentHeight -= 27
+				contentHeight -= nativePreviewFooterHeight(item, false) + nativePreviewContentGap
 			}
 			ui.Scroll(c).Grow(1).MinHeight(0).FillWidth().Children(func() {
 				ui.Column(c).MinHeight(max(0, contentHeight)).FillWidth().Justify(ui.Center).Gap(12).Children(func() {
@@ -139,7 +133,7 @@ func (s *application) nativeTimestampPreview(c *ui.Context, item clipmodel.Item,
 						date, alternate = stamp.Time.UTC(), stamp.Time.In(time.Local)
 					}
 					counter := strconv.FormatInt(number, 10)
-					ui.Text(c, counter).Font(nativeCodeFont).FontSize(nativeTimestampNumberSize(counter, width-64)).FontWeight(nativeWeightTitle).FontFeatures("tnum").LineHeight(1.15).FillWidth().SingleLine()
+					ui.Text(c, counter).Font(nativeCodeFont).FontSize(nativeTimestampNumberSize(counter, width-2*(nativePreviewEdgeInset+nativePreviewDataInset))).FontWeight(nativeWeightTitle).FontFeatures("tnum").LineHeight(1.15).FillWidth().SingleLine()
 					ui.Column(c).Gap(3).FillWidth().Children(func() {
 						ui.Text(c, s.nativeTimestampDate(date)).FontSize(23).FontWeight(nativeWeightValue).FontFeatures("tnum").SingleLine()
 						ui.Text(c, nativeTimestampClock(date)).FontSize(23).FontWeight(nativeWeightValue).FontFeatures("tnum").SingleLine()
@@ -155,7 +149,7 @@ func (s *application) nativeTimestampPreview(c *ui.Context, item clipmodel.Item,
 					ui.Text(c, other).FontSize(nativeTextBody).FontWeight(nativeWeightBody).FontFeatures("tnum").TextColor(ink.muted).Wrap().FillWidth()
 				})
 			})
-			s.nativePreviewScope(c, item, ink)
+			s.nativePreviewFooter(c, item, ink, nil)
 		})
 	})
 }

@@ -67,33 +67,32 @@ func (s *application) nativeLinkCardBodyWithIcon(c *ui.Context, item clipmodel.I
 		ui.Column(c).Fill().MinHeight(0).Padding(nativeLinkCoverHeight+8-(nativeCardPadding+nativeCardHeaderHeight+nativeCardContentGap), 0, 0).Clip().Children(func() {
 			ui.Row(c).FillWidth().MinHeight(0).Gap(8).AlignItems(ui.Start).Children(func() {
 				s.nativeLinkSiteIcon(c, icon, 20, p)
-				ui.Text(c, title).Font(nativeContentFont).FontSize(14).FontWeight(nativeWeightTitle).LineHeight(1.15).MaxLines(2).Wrap().Grow(1).MinWidth(0).TextColor(p.text)
+				nativeContentText(c, title).FontSize(14).FontWeight(nativeWeightTitle).LineHeight(1.15).MaxLines(2).Wrap().Grow(1).MinWidth(0).TextColor(p.text)
 			})
 		})
 		return
 	}
 	ui.Column(c).Fill().MinHeight(0).Padding(6, 0, 0).Gap(10).Clip().Children(func() {
 		s.nativeLinkSiteIcon(c, icon, 28, p)
-		ui.Text(c, title).Font(nativeContentFont).FontSize(nativeTextBody).FontWeight(nativeWeightTitle).LineHeight(1.25).MaxLines(2).Wrap().FillWidth().MinHeight(0).TextColor(p.text)
+		nativeContentText(c, title).FontSize(nativeTextBody).FontWeight(nativeWeightTitle).LineHeight(1.25).MaxLines(2).Wrap().FillWidth().MinHeight(0).TextColor(p.text)
 	})
 }
 
 func (s *application) nativeLinkPreview(c *ui.Context, item clipmodel.Item, p nativeColors) {
-	ui.Column(c).Fill().Padding(12, 8, 8).Gap(8).Children(func() {
-		ui.Box(c).Height(nativeControlSize).Shrink(0).FillWidth().Padding(0, 14).Children(func() {
+	nativePreviewLayout(c).Children(func() {
+		nativePreviewToolbarRow(c).Children(func() {
 			s.nativePreviewToolbar(c, item, p)
 		})
 		s.nativeLinkContent(c, item, p)
-		ui.Row(c).Height(nativeCompactControl).Shrink(0).FillWidth().Padding(0, 14).Gap(nativeToolbarGap).AlignItems(ui.Center).TextColor(p.muted).Children(func() {
-			if s.nativeCopyButton(c, p).Clicked() {
-				s.chooseNative(false)
-			}
-			// Navigation changes the toolbar's location, but this control always
-			// copies the exact saved record, so its label keeps the original host.
-			ui.Text(c, nativeLinkCardHost(item)).Font(nativeUIFont).FontSize(nativeTextMeta).FontWeight(nativeWeightValue).Grow(1).MinWidth(0).SingleLine()
+		ui.Box(c).FillWidth().Shrink(0).Padding(0, nativePreviewReadingInset).Children(func() {
+			s.nativePreviewFooter(c, item, p, func() {
+				if s.nativeCopyButton(c, p).Clicked() {
+					s.chooseNative(false)
+				}
+				// Navigation changes the toolbar's location, but this control always
+				// copies the exact saved record, so its label keeps the original host.
+				nativeContentText(c, nativeLinkCardHost(item)).FontSize(nativeTextMeta).FontWeight(nativeWeightValue).Grow(1).MinWidth(0).SingleLine()
+			})
 		})
-		if len(item.AllowedApps) > 0 {
-			ui.Box(c).FillWidth().Shrink(0).Padding(0, 14).Children(func() { s.nativePreviewScope(c, item, p) })
-		}
 	})
 }

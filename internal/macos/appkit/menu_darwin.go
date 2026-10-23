@@ -263,6 +263,27 @@ func appendStatusMenuItem(menu uintptr, entry MenuEntry, appearance, target uint
 		nativeobjc.Send(item, objc.RegisterName("setAction:"), uintptr(objc.RegisterName("copiggyMenuItemSelected:")))
 	}
 	nativeobjc.Send(menu, objc.RegisterName("addItem:"), item)
+	if entry.Key == " " {
+		return setStatusMenuSpaceGlyph(menu, item)
+	}
+	return nil
+}
+
+// AppKit spells out an ASCII Space using the system language, independently
+// of the application's language. Keep standard menu drawing with the neutral
+// Space glyph, plus a hidden native equivalent for the actual key. Both items
+// share the same target/tag/action and lifetime; no global shortcut is added.
+func setStatusMenuSpaceGlyph(menu, item uintptr) error {
+	shortcut := nativeobjc.Send(item, objc.RegisterName("copy"))
+	if shortcut == 0 {
+		return errors.New("cannot allocate native Space key equivalent")
+	}
+	defer nativeobjc.Send(shortcut, objc.RegisterName("release"))
+	nativeobjc.Send(shortcut, objc.RegisterName("setHidden:"), 1)
+	nativeobjc.Send(shortcut, objc.RegisterName("setAllowsKeyEquivalentWhenHidden:"), 1)
+	nativeobjc.Send(menu, objc.RegisterName("addItem:"), shortcut)
+	nativeobjc.Send(item, objc.RegisterName("setAllowsAutomaticKeyEquivalentLocalization:"), 0)
+	nativeobjc.Send(item, objc.RegisterName("setKeyEquivalent:"), menuString("␣"))
 	return nil
 }
 

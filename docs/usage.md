@@ -11,6 +11,7 @@ Press **Return** or double-click a card to copy the selected content and close t
 | Show / hide the panel | ⌃⌥⇧Space or menu-bar icon |
 | Search | ⌘F or search button |
 | Navigate cards | ← / → |
+| First / last card in the current list | ⌘← / ⌘→ |
 | Return from search to cards | ↓ |
 | Preview selected card | Space or ⌘Y |
 | Copy selected content / chosen format | Return |
@@ -19,7 +20,7 @@ Press **Return** or double-click a card to copy the selected content and close t
 | Close preview / search / panel | Esc |
 | Copy with source-app protection | ⌃⌘C, while protection is enabled |
 
-Arrow keys retain normal text-editing behavior while the search field has focus. The top pin button switches between all history and pinned items. Right-click the menu-bar icon for recording, history retention, appearance, language and quit options. Menu items show icons and native shortcuts. Only protection updates and errors appear beside the menu-bar icon; hover and routine successes stay quiet.
+Arrow keys, including ⌘← / ⌘→, retain normal text-editing behavior while the search field has focus. The top pin button switches between all history and pinned items. Right-click the menu-bar icon for recording, history retention, appearance, language and quit options. Menu items show icons and native shortcuts. Only protection updates and errors appear beside the menu-bar icon; hover and routine successes stay quiet.
 
 When history is empty, Copiggy's pig occasionally blinks while three short lines appear one by one on its clipboard, pause, then fade. The empty pinned list shows the same pig pressing a pin into a note, with a quiet rest between gestures. Both stay still when macOS Reduce Motion is enabled. The menu-bar pig holds a small clipboard and gains a shield when Paste Guard is active.
 

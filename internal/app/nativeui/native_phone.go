@@ -53,7 +53,9 @@ func nativePhoneLines(display string) []string {
 func nativePhoneNumberSize(lines []string, preferred, minimum, width float32) float32 {
 	size := preferred
 	for _, line := range lines {
-		layout := ui.ShapeText(line, ui.Font{Family: nativeContentFont, Size: preferred, Weight: nativeWeightTitle, Features: "tnum"}, 0)
+		font := nativeContentFontFor(line, preferred, nativeWeightTitle)
+		font.Features = "tnum"
+		layout := ui.ShapeText(line, font, 0)
 		measured, _ := layout.Size()
 		if measured > width {
 			size = min(size, preferred*width/measured)
@@ -65,7 +67,7 @@ func nativePhoneNumberSize(lines []string, preferred, minimum, width float32) fl
 func nativePhoneNumber(c *ui.Context, lines []string, size float32) {
 	ui.Column(c).FillWidth().AlignItems(ui.Center).Children(func() {
 		for _, line := range lines {
-			ui.Text(c, line).Font(nativeContentFont).FontSize(size).FontWeight(nativeWeightTitle).FontFeatures("tnum").LineHeight(1.15).FillWidth().SingleLine().TextAlign(ui.Center)
+			nativeContentText(c, line).FontSize(size).FontWeight(nativeWeightTitle).FontFeatures("tnum").LineHeight(1.15).FillWidth().SingleLine().TextAlign(ui.Center)
 		}
 	})
 }
@@ -73,7 +75,7 @@ func nativePhoneNumber(c *ui.Context, lines []string, size float32) {
 func nativePhoneCard(c *ui.Context, phone clipmodel.PhoneValue) {
 	lines := nativePhoneLines(phone.Display)
 	size := nativePhoneNumberSize(lines, nativePhoneCardNumberSize, 14, nativeCardSize-2*nativeCardPadding)
-	ui.Column(c).Fill().Padding(8, 0, 0).Children(func() {
+	ui.Column(c).Fill().Padding(nativeInlineGap, 0, 0).Children(func() {
 		// A single ungrouped number sits on the same visual center as two lines.
 		if len(lines) == 1 {
 			ui.Box(c).Height(14).Shrink(0)
@@ -113,16 +115,16 @@ func (s *application) nativePhonePreview(c *ui.Context, item clipmodel.Item, p n
 	ink := nativePhoneColors()
 	// A thin glass margin keeps the reading surface separate from AppKit's
 	// continuous popover arrow, just like the other paper-based previews.
-	ui.Column(c).Fill().Padding(12, 8, 8).Gap(8).Children(func() {
-		ui.Box(c).Height(nativeControlSize).FillWidth().Padding(0, 14).Children(func() {
+	nativePreviewLayout(c).Children(func() {
+		nativePreviewToolbarRow(c).Children(func() {
 			s.nativePreviewToolbar(c, item, p)
 		})
 		// A native background follows Radius; a custom Draw callback is not
 		// rounded by Element.Clip, which applies only to children.
-		ui.Column(c).Grow(1).MinHeight(0).FillWidth().Radius(nativePreviewPaperRadius).Clip().Gradient(ui.Hex("#fbfefa"), ui.Hex("#edf9f2"), 135).TextColor(ink.text).Padding(16).Gap(8).Children(func() {
-			contentHeight := height - (12 + nativeControlSize + 8 + 8 + 32)
+		ui.Column(c).Grow(1).MinHeight(0).FillWidth().Radius(nativePreviewPaperRadius).Clip().Gradient(ui.Hex("#fbfefa"), ui.Hex("#edf9f2"), 135).TextColor(ink.text).Padding(nativePreviewHeroInset).Gap(nativePreviewContentGap).Children(func() {
+			contentHeight := height - nativePreviewChromeHeight - 2*nativePreviewHeroInset
 			if len(item.AllowedApps) > 0 {
-				contentHeight -= 26
+				contentHeight -= nativePreviewContentGap + nativePreviewFooterHeight(item, false)
 			}
 			ui.Scroll(c).Grow(1).MinHeight(0).FillWidth().Children(func() {
 				ui.Column(c).FillWidth().MinHeight(max(180, contentHeight)).Gap(20).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
@@ -131,7 +133,7 @@ func (s *application) nativePhonePreview(c *ui.Context, item clipmodel.Item, p n
 						if state.Dialing {
 							lines = []string{phone.Number}
 						}
-						size := nativePhoneNumberSize(lines, nativePhonePreviewNumberSize, 24, width-64)
+						size := nativePhoneNumberSize(lines, nativePhonePreviewNumberSize, 24, width-2*(nativePreviewEdgeInset+nativePreviewHeroInset))
 						nativePhoneNumber(c, lines, size)
 						ui.Column(c).FillWidth().Gap(6).AlignItems(ui.Center).TextColor(ink.muted).Children(func() {
 							label := s.tr("Phone")
@@ -139,14 +141,14 @@ func (s *application) nativePhonePreview(c *ui.Context, item clipmodel.Item, p n
 								label = s.tr("International")
 							}
 							ui.Text(c, label).FontSize(nativeTextBody).FontWeight(nativeWeightBody).SingleLine()
-							ui.Text(c, phone.Number).FontSize(nativeTextPreview).FontWeight(nativeWeightBody).FontFeatures("tnum").SingleLine()
+							nativeContentText(c, phone.Number).FontSize(nativeTextPreview).FontWeight(nativeWeightBody).FontFeatures("tnum").SingleLine()
 						})
 					} else {
-						ui.Text(c, item.Text).FontSize(nativeTextPreview).Wrap().FillWidth()
+						nativeContentText(c, item.Text).FontSize(nativeTextPreview).Wrap().FillWidth()
 					}
 				})
 			})
-			s.nativePreviewScope(c, item, ink)
+			s.nativePreviewFooter(c, item, ink, nil)
 		})
 	})
 }

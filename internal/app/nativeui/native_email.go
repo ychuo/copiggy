@@ -16,7 +16,6 @@ const (
 	nativeEmailPreviewHeight  = 264
 	nativeEmailPreviewTitle   = 46
 	nativeEmailPreviewDomain  = 28
-	nativeEmailPaperInset     = 8
 )
 
 func nativeEmailColors() nativeColors {
@@ -39,13 +38,13 @@ func nativeEmailCard(c *ui.Context, email clipmodel.EmailValue, meta ui.Color) {
 	domain := "@" + email.Domain
 	domainSize := nativeEmailFittedSize(domain, nativeEmailCardDomainSize, 10.5, nativeCardSize-40, nativeWeightBody)
 	nativeCardHero(c).Padding(0, 2).Gap(2).Children(func() {
-		ui.Text(c, email.Local).Font(nativeContentFont).FontSize(size).FontWeight(nativeWeightTitle).LineHeight(1.15).FillWidth().SingleLine().TextAlign(ui.Center)
-		ui.Text(c, domain).Font(nativeContentFont).FontSize(domainSize).FontWeight(nativeWeightBody).LineHeight(1.2).TextColor(meta).FillWidth().SingleLine().TextAlign(ui.Center)
+		nativeContentText(c, email.Local).FontSize(size).FontWeight(nativeWeightTitle).LineHeight(1.15).FillWidth().SingleLine().TextAlign(ui.Center)
+		nativeContentText(c, domain).FontSize(domainSize).FontWeight(nativeWeightBody).LineHeight(1.2).TextColor(meta).FillWidth().SingleLine().TextAlign(ui.Center)
 	})
 }
 
 func nativeEmailFittedSize(text string, preferred, minimum, width float32, weight int) float32 {
-	layout := ui.ShapeText(text, ui.Font{Family: nativeContentFont, Size: preferred, Weight: weight}, 0)
+	layout := ui.ShapeText(text, nativeContentFontFor(text, preferred, weight), 0)
 	measured, _ := layout.Size()
 	if measured <= width {
 		return preferred
@@ -93,17 +92,16 @@ func (s *application) nativeEmailPreview(c *ui.Context, item clipmodel.Item, p n
 	ink := nativeEmailColors()
 	// The popover and arrow remain system glass. Only the letter's reading
 	// surface gets paper, so desktop detail cannot compete with the address.
-	ui.Column(c).Fill().Padding(12, nativeEmailPaperInset, nativeEmailPaperInset).Gap(8).Children(func() {
-		ui.Box(c).Height(nativeControlSize).FillWidth().Padding(0, 14).Children(func() {
+	nativePreviewLayout(c).Children(func() {
+		nativePreviewToolbarRow(c).Children(func() {
 			s.nativePreviewToolbar(c, item, p)
 		})
-		ui.Column(c).Grow(1).MinHeight(0).FillWidth().Radius(nativePreviewPaperRadius).Background(ui.Hex("#fdfbf8")).TextColor(ink.text).Padding(14).Gap(8).Children(func() {
-			contentHeight := height - (12 + nativeControlSize + 2*nativeEmailPaperInset + 28 + 16 + .5 + nativeCompactControl)
-			if len(item.AllowedApps) > 0 {
-				contentHeight -= 26
-			}
+		// The divider has space on both sides. Use the compact section gap
+		// here so a short protected address still fits without scrolling.
+		ui.Column(c).Grow(1).MinHeight(0).FillWidth().Radius(nativePreviewPaperRadius).Background(ui.Hex("#fdfbf8")).TextColor(ink.text).Padding(nativePreviewReadingInset).Gap(nativePreviewSectionGap).Children(func() {
+			contentHeight := height - nativePreviewChromeHeight - 2*nativePreviewReadingInset - 2*nativePreviewSectionGap - .5 - nativePreviewFooterHeight(item, true)
 			ui.Scroll(c).Grow(1).MinHeight(0).FillWidth().Children(func() {
-				ui.Column(c).FillWidth().MinHeight(max(80, contentHeight)).Padding(20, 8, 0).Gap(3).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
+				ui.Column(c).FillWidth().MinHeight(max(80, contentHeight)).Padding(nativePreviewReadingInset, 8, 0).Gap(3).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
 					if email := value.Email; email != nil {
 						size := float32(nativeEmailPreviewTitle)
 						if utf8.RuneCountInString(email.Local) > 10 {
@@ -112,22 +110,21 @@ func (s *application) nativeEmailPreview(c *ui.Context, item clipmodel.Item, p n
 						if utf8.RuneCountInString(email.Local) > 24 {
 							size = 24
 						}
-						ui.Text(c, email.Local).Font(nativeContentFont).FontSize(size).FontWeight(nativeWeightTitle).LineHeight(1.15).FillWidth().Wrap().TextAlign(ui.Center)
-						ui.Text(c, "@"+email.Domain).Font(nativeContentFont).FontSize(nativeEmailPreviewDomain).FontWeight(nativeWeightBody).LineHeight(1.2).TextColor(ink.muted).FillWidth().Wrap().TextAlign(ui.Center)
+						nativeContentText(c, email.Local).FontSize(size).FontWeight(nativeWeightTitle).LineHeight(1.15).FillWidth().Wrap().TextAlign(ui.Center)
+						nativeContentText(c, "@"+email.Domain).FontSize(nativeEmailPreviewDomain).FontWeight(nativeWeightBody).LineHeight(1.2).TextColor(ink.muted).FillWidth().Wrap().TextAlign(ui.Center)
 					} else {
-						ui.Text(c, item.Text).Font(nativeContentFont).FontSize(nativeTextPreview).Wrap().FillWidth()
+						nativeContentText(c, item.Text).FontSize(nativeTextPreview).Wrap().FillWidth()
 					}
 				})
 			})
 			ui.Box(c).Height(.5).Shrink(0).FillWidth().Background(ink.muted.Alpha(.18))
-			ui.Row(c).Height(nativeCompactControl).Shrink(0).Gap(nativeToolbarGap).AlignItems(ui.Center).TextColor(ink.muted).Children(func() {
+			s.nativePreviewFooter(c, item, ink, func() {
 				if s.nativeCopyButton(c, ink).Clicked() {
 					s.chooseNative(false)
 				}
-				ui.Text(c, strings.TrimSpace(item.Text)).FontSize(nativeTextMeta).FontWeight(nativeWeightValue).Grow(1).MinWidth(0).SingleLine()
+				nativeContentText(c, strings.TrimSpace(item.Text)).FontSize(nativeTextMeta).FontWeight(nativeWeightValue).Grow(1).MinWidth(0).SingleLine()
 				ui.Text(c, s.tr("Email address")).FontSize(nativeTextMeta).FontWeight(nativeWeightBody).Shrink(0).SingleLine()
 			})
-			s.nativePreviewScope(c, item, ink)
 		})
 	})
 }

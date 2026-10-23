@@ -29,8 +29,19 @@ const (
 	nativeInlineGap          = 6
 	nativeKeySize            = 20
 
-	nativeUIFont        = "system-ui"
-	nativeContentFont   = nativeUIFont
+	// Preview composition roles keep controls and metadata stable while each
+	// content type retains its own artwork and display typography.
+	nativePreviewTopInset       = 12
+	nativePreviewEdgeInset      = 8
+	nativePreviewSectionGap     = 8
+	nativePreviewReadingInset   = 14
+	nativePreviewHeroInset      = 18
+	nativePreviewDataInset      = 22
+	nativePreviewContentGap     = 12
+	nativePreviewMetadataHeight = nativeCompactControl
+	nativePreviewScopeGap       = 6
+	nativePreviewChromeHeight   = nativePreviewTopInset + nativeControlSize + nativePreviewSectionGap + nativePreviewEdgeInset
+
 	nativeCodeFont      = "monospace"
 	nativeTextHint      = 10
 	nativeTextMeta      = 11
@@ -46,6 +57,14 @@ const (
 )
 
 type nativeColors struct{ text, muted, edge, control, hover, selection, paper, paperText, paperMeta, link, warning, icon ui.Color }
+
+func nativePreviewLayout(c *ui.Context) ui.Element {
+	return ui.Column(c).Fill().Padding(nativePreviewTopInset, nativePreviewEdgeInset, nativePreviewEdgeInset).Gap(nativePreviewSectionGap)
+}
+
+func nativePreviewToolbarRow(c *ui.Context) ui.Element {
+	return ui.Box(c).Height(nativeControlSize).Shrink(0).FillWidth().Padding(0, nativePreviewReadingInset)
+}
 
 // The header is taller than the footer, so the shared body is slightly below
 // the square's center. Center short hero content on the card itself without
@@ -76,7 +95,8 @@ func panelColors(dark bool) nativeColors {
 
 // The AppKit host owns the surface material. MyGo paints only content and
 // controls onto its transparent native layer.
-func setNativeTheme(c *ui.Context, p nativeColors, dark bool) {
+func setNativeTheme(c *ui.Context, p nativeColors, dark bool, language ...string) {
+	_ = loadNativeFonts()
 	t := *ui.LightTheme()
 	if dark {
 		t = *ui.DarkTheme()
@@ -93,6 +113,9 @@ func setNativeTheme(c *ui.Context, p nativeColors, dark bool) {
 	t.Inverse = p.link
 	t.InverseText = p.text
 	t.Font = nativeUIFont
+	if len(language) > 0 {
+		t.Font = nativeFontForLanguage(language[0])
+	}
 	t.FontSize = nativeTextBase
 	t.Radius = 8
 	c.SetTheme(&t)

@@ -1,6 +1,7 @@
 package nativeui
 
 import (
+	"context"
 	"image"
 	"math"
 	"testing"
@@ -8,6 +9,27 @@ import (
 	"copiggy/internal/clipmodel"
 	"github.com/egoist/mygo/ui"
 )
+
+func TestProtectedEmailPreviewFitsShortAddressWithoutScrolling(t *testing.T) {
+	s, item := semanticPreviewFixture(t, "hello@example.com")
+	s.appNames["com.example.Editor"] = "Fixture editor"
+	if err := s.store.SetAllowedApps(context.Background(), item.ID, []string{"com.example.Editor"}); err != nil {
+		t.Fatal(err)
+	}
+	s.filter()
+	tt := ui.NewTester(s.nativePopoverView, 520, nativeEmailPreviewHeight)
+	account, accountFound := tt.Find("hello")
+	domain, domainFound := tt.Find("@example.com")
+	if !accountFound || !domainFound {
+		t.Fatal("email address is missing")
+	}
+	tt.Scroll(260, 120, 0, 200)
+	afterAccount, _ := tt.Find("hello")
+	afterDomain, _ := tt.Find("@example.com")
+	if account != afterAccount || domain != afterDomain {
+		t.Fatalf("short protected address needs scrolling: account=%+v -> %+v domain=%+v -> %+v", account, afterAccount, domain, afterDomain)
+	}
+}
 
 func TestEmailCardCentersAddressWithinSquare(t *testing.T) {
 	for _, raw := range []string{"hello@example.com", "First.Last+tag@EXAMPLE.com", "a.longer.account.name@example.com"} {
