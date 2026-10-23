@@ -32,8 +32,14 @@ scripts/
   go.sh        Go command wrapper
   check.sh     Headless tests, static checks and production binary
   package.sh   Staged MyGo bundle, metadata verification and signing
+  release.sh   Versioned ZIP and checksum for GitHub uploads
   run.sh       Package, then open the official application bundle
 build/         Generated output; ignored
+  Copiggy.app  Official application bundle and launch path
+  check/       Binary produced by check.sh
+  releases/    Release attachments grouped by version (v0.1.0, etc.)
+  archive/     Retained older local outputs; not used by build scripts
+  .staging/    Temporary packaging directories, cleaned after each run
 .cache/        Toolchain, modules and build cache; ignored
 ```
 
@@ -61,6 +67,7 @@ Run commands from the project root:
 ./scripts/check.sh
 ./scripts/package.sh
 ./scripts/run.sh
+./scripts/release.sh
 ```
 
 `scripts/env.sh`, shared by every entry point, pins Go 1.27.1, disables cgo and VCS stamping, and puts `GOPATH` and `GOCACHE` under `.cache/`. It also works from a source folder without Git metadata. Use it for focused checks as well:
@@ -93,6 +100,8 @@ Builds set `-X github.com/egoist/mygo.production=1` and `mygo_noinspector`. Keep
 `mygo.json` is the single source of app identity, version and macOS packaging options. It intentionally has no web frontend command, frontend development server or JavaScript bindings. The pinned MyGo CLI is a Go tool dependency, so the framework and CLI versions stay aligned.
 
 `scripts/package.sh` uses the CLI to create a production bundle in a temporary directory, then normalizes the executable to `copiggy`, verifies metadata and icon resources, removes duplicated embedded artwork and fonts, retains licenses and signs the result again. Only a verified bundle replaces `build/Copiggy.app`; a failed build preserves the previous bundle. The identifier remains `dev.copiggy`. `run.sh` opens that official bundle through Launch Services.
+
+`scripts/release.sh` packages the app, then creates `Copiggy-v<version>-macos-<arch>.zip` and `SHA256SUMS.txt` together in `build/releases/v<version>/`. The version comes from `mygo.json`. It verifies the archive before publishing the directory and refuses to replace an existing version, preserving previously prepared attachments. Upload both files to GitHub manually; the script does not create a tag or publish a release. Packaging intermediates stay in `build/.staging/`; older local outputs may be retained under `build/archive/`. Keep release archives out of the build root.
 
 Packaging requires full Xcode 26 or later for Icon Composer compilation; `DEVELOPER_DIR` is set only for the command when the standard Xcode location is available. The project does not change `xcode-select`. `resources/brand/Copiggy.icon` uses an exact copy of the approved `app-icon.png`, with warm light/dark backgrounds and no added glass, gloss or shadow on the artwork. Apple’s asset compiler produces both `Assets.car` and the ICNS fallback. Bundled launches retain that system icon; only a bare development executable calls `Dock.SetIcon` with the PNG. The application itself still targets macOS 13 or later.
 

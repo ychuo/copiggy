@@ -16,6 +16,6 @@ go test ./... -timeout 120s
 # MyGo vet runs go vet before checking native UI element lifetimes.
 go tool mygo vet
 cmp resources/brand/app-icon.png resources/brand/Copiggy.icon/Assets/pig.png
-mkdir -p build
+mkdir -p build/check
 go build -trimpath -tags mygo_noinspector \
   -ldflags '-X github.com/egoist/mygo.production=1' -o build/check/copiggy .

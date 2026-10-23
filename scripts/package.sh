@@ -32,8 +32,8 @@ copiggy_signing=$(/usr/bin/plutil -extract macos.signingIdentity raw -o - mygo.j
 test "$copiggy_name" = Copiggy
 test "$copiggy_identifier" = dev.copiggy
 
-mkdir -p build
-copiggy_stage=$(mktemp -d "$PWD/build/.package-XXXXXX")
+mkdir -p build/.staging
+copiggy_stage=$(mktemp -d "$PWD/build/.staging/package-XXXXXX")
 copiggy_final="$PWD/build/Copiggy.app"
 copiggy_previous="$copiggy_stage/previous.app"
 cleanup() {

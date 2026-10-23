@@ -92,6 +92,7 @@ Built with Go and [MyGo](https://github.com/egoist/mygo). The panel and controls
 ./scripts/run.sh      # Package and launch
 ./scripts/check.sh    # Headless tests, vet and production build
 ./scripts/package.sh  # Create build/Copiggy.app
+./scripts/release.sh  # Create versioned ZIP and checksum in build/releases/
 ```
 
 - [Usage and shortcuts](docs/usage.md)
