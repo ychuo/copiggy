@@ -8,6 +8,12 @@ import "embed"
 //go:embed icons/*.svg
 var Icons embed.FS
 
+// RegionFlags contains local 4:3 SVG flags keyed by lowercase numbering region.
+// The artwork keeps its original colors and never requires a network request.
+//
+//go:embed flags/*.svg
+var RegionFlags embed.FS
+
 // SearchTerms contains localized content-type keywords. Searching any supported
 // language should work independently of the selected interface language.
 //

@@ -35,3 +35,12 @@ func TestPreferenceSnapshotsOwnOptionalValues(t *testing.T) {
 		t.Fatal("explicit light theme ignored")
 	}
 }
+
+func TestPhoneRegionPreferenceIsIndependentAndBounded(t *testing.T) {
+	for input, want := range map[string]string{"cn": "CN", " GB ": "GB", "": "", "zh-CN": "", "UTC": "", "ZZ": ""} {
+		p := Normalize(Preferences{Language: "ja", Theme: "dark", PhoneRegion: input})
+		if p.PhoneRegion != want || p.Language != "ja" || p.Theme != "dark" {
+			t.Fatalf("region normalization changed other preferences: %+v", p)
+		}
+	}
+}

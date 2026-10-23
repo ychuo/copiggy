@@ -103,6 +103,7 @@ func (s *application) syncNativePopover() {
 			s.popoverDark = state.Dark
 		}
 	}
+	s.syncNativePhoneLocation(popup.Invalidate)
 	// Embedded WebKit needs the real window adopted by popup.Show(). A hidden
 	// NSPopover has no NSWindow, and reopening may allocate a different one.
 	s.syncNativeLinkPreview(item)

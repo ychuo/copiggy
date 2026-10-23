@@ -121,7 +121,7 @@ func (s *application) nativeSecretRevealAction(c *ui.Context, item clipmodel.Ite
 	if state.Revealed {
 		icon, label = "EyeSlash", s.tr("Hide")
 	}
-	if s.nativeActionButton(c, icon, label, p).Disabled(!nativeSecretValid(item, clipmodel.Analyze(item.Text))).Clicked() {
+	if s.nativeActionButton(c, icon, label, p).Disabled(!nativeSecretValid(item, clipmodel.AnalyzeItem(item))).Clicked() {
 		state.Revealed = !state.Revealed
 		s.publish()
 	}
@@ -182,7 +182,7 @@ func nativeSecretPartial(item clipmodel.Item, value clipmodel.Analysis) string {
 
 func (s *application) nativeSecretPreview(c *ui.Context, item clipmodel.Item, p nativeColors) {
 	width, height := c.Size()
-	value, state := clipmodel.Analyze(item.Text), s.semanticState(item)
+	value, state := clipmodel.AnalyzeItem(item), s.semanticState(item)
 	valid := nativeSecretValid(item, value)
 	ink := nativeSecretCardColors(clipmodel.TypeToken)
 	from, to := ui.Hex("#343d48"), ui.Hex("#29323d")

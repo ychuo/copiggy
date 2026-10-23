@@ -1,6 +1,12 @@
 // Package settings defines user preferences independently of their UI and file format.
 package settings
 
+import (
+	"strings"
+
+	"golang.org/x/text/language"
+)
+
 const DefaultRetentionDays = 30
 
 // Preferences is the complete persisted preference snapshot. Nil optional values
@@ -11,6 +17,7 @@ type Preferences struct {
 	RecordingEnabled  *bool  `json:"recordingEnabled,omitempty"`
 	PasteGuardEnabled *bool  `json:"pasteGuardEnabled,omitempty"`
 	RetentionDays     *int   `json:"retentionDays,omitempty"`
+	PhoneRegion       string `json:"phoneRegion,omitempty"`
 }
 
 func ValidRetentionDays(days int) bool { return days == 0 || days == 1 || days == 7 || days == 30 }
@@ -23,6 +30,7 @@ func Retention(value *int) int {
 }
 func Default() Preferences { return Preferences{Language: "en"} }
 func Normalize(p Preferences) Preferences {
+	p.PhoneRegion = NormalizePhoneRegion(p.PhoneRegion)
 	switch p.Language {
 	case "en", "zh-Hans", "zh-Hant", "ja":
 	default:
@@ -32,6 +40,20 @@ func Normalize(p Preferences) Preferences {
 		p.Theme = ""
 	}
 	return p.Clone()
+}
+
+// An empty region follows the system region. UI language and time zone never
+// supply this preference; number-plan support is checked by the recognizer.
+func NormalizePhoneRegion(region string) string {
+	region = strings.ToUpper(strings.TrimSpace(region))
+	if len(region) != 2 {
+		return ""
+	}
+	parsed, err := language.ParseRegion(region)
+	if err != nil || !parsed.IsCountry() {
+		return ""
+	}
+	return parsed.String()
 }
 func (p Preferences) Clone() Preferences {
 	if p.RecordingEnabled != nil {

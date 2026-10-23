@@ -16,6 +16,10 @@ func (s *application) nativePopoverView(c *ui.Context) {
 		return
 	}
 	semantic := *s.semanticState(item)
+	// Async metadata updates do not change format controls or their identity.
+	// In particular, allocating its first slot must not remount the toolbar
+	// between pointer-down and the user's first format selection.
+	semantic.PhoneLocation = nil
 	// Keep this focus target stable across selection, draft comparison and zoom.
 	// Only this native window binds PreviewFocus; the tray owns Focus separately.
 	root := ui.Column(c).Key("native-preview-surface").Fill().Focusable().AutoFocus().Bind(&state.PreviewFocus).Role(ui.RoleDialog).Label(s.tr("Content preview")).TextColor(p.text).Lang(s.currentLanguage())

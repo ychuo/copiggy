@@ -27,14 +27,34 @@ type Target struct {
 }
 
 func OpenTarget(text string) (Target, error) {
-	value := clipmodel.Analyze(text)
+	return targetForAnalysis(clipmodel.Analyze(text))
+}
+
+// OpenItemTarget binds parsing to the captured region, not the current UI or
+// system locale. The caller supplies a freshly retrieved trusted history item.
+func OpenItemTarget(item clipmodel.Item) (Target, error) {
+	value := clipmodel.AnalyzeItem(item)
+	if value.Type != item.Type {
+		return Target{}, ErrUnsupported
+	}
+	return targetForAnalysis(value)
+}
+
+func targetForAnalysis(value clipmodel.Analysis) (Target, error) {
 	switch value.Type {
 	case clipmodel.TypeEmail:
 		// Escape the complete recipient as a path component so literal '?' or
 		// '#' in a valid email local part cannot introduce headers or fragments.
 		return Target{URL: "mailto:" + url.PathEscape(value.Email.Address)}, nil
 	case clipmodel.TypePhone:
-		return Target{URL: "tel:" + value.Phone.Number}, nil
+		number := value.Phone.E164
+		if number == "" {
+			return Target{}, ErrUnsupported
+		}
+		if value.Phone.Extension != "" {
+			number += ";ext=" + value.Phone.Extension
+		}
+		return Target{URL: "tel:" + number}, nil
 	case clipmodel.TypeCoordinates:
 		coordinates := value.Coordinates
 		point := strconv.FormatFloat(coordinates.Latitude, 'f', -1, 64) + "," + strconv.FormatFloat(coordinates.Longitude, 'f', -1, 64)

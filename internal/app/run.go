@@ -7,6 +7,7 @@ import (
 	"copiggy/internal/app/nativeui"
 	"copiggy/internal/clipboard"
 	"copiggy/internal/clipmodel"
+	macos "copiggy/internal/macos/appkit"
 	"copiggy/internal/macos/guard"
 	"copiggy/internal/macos/pasteboard"
 	"copiggy/internal/settings"
@@ -50,6 +51,14 @@ func Run() error {
 		prefs = settings.Default()
 	}
 	history := clipboard.NewHistory(repo, settings.Retention(prefs.RetentionDays))
+	systemRegion := macos.SystemRegion()
+	resolvedRegion := func(p settings.Preferences) string {
+		if p.PhoneRegion != "" {
+			return p.PhoneRegion
+		}
+		return systemRegion
+	}
+	history.SetRecognitionRegion(resolvedRegion(prefs))
 	historyErr := history.Load(ctx)
 	var startupErr error
 	mygo.App.SetName("Copiggy")
@@ -78,12 +87,13 @@ func Run() error {
 		}
 		r := &runtime{commands: newDispatcher(), history: history, platform: nativeClipboard{reader, bridge}, prefs: prefsRepo, repo: repo, monitoring: settings.Enabled(prefs.RecordingEnabled), lastRevision: reader.ChangeCount(), ownRevision: -1, quit: make(chan struct{}), lastExpiry: time.Now()}
 		r.view = nativeui.New(nativeui.Config{
-			History: history, Guard: bridge, Preferences: prefs, Dispatch: r.dispatch, Refresh: r.observeSoon,
+			History: history, Guard: bridge, Preferences: prefs, SystemRegion: systemRegion, Dispatch: r.dispatch, Refresh: r.observeSoon,
 			SavePreferences: func(p settings.Preferences) error {
 				if err := prefsRepo.Save(context.Background(), p); err != nil {
 					return err
 				}
 				history.SetRetention(settings.Retention(p.RetentionDays))
+				history.SetRecognitionRegion(resolvedRegion(p))
 				return nil
 			},
 			SetMonitoring: func(enabled bool) {

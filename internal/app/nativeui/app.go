@@ -31,6 +31,7 @@ type Config struct {
 	History         *clipboard.History
 	Guard           GuardState
 	Preferences     settings.Preferences
+	SystemRegion    string
 	Dispatch        func(func() error, func(error))
 	SavePreferences func(settings.Preferences) error
 	Copy            func(context.Context, string, bool) (clipmodel.Item, error)
@@ -153,6 +154,7 @@ type application struct {
 	query                       string
 	language                    string
 	themePreference             string
+	phoneRegion                 string
 	retentionDays               int
 	guardPreference             bool
 	results                     []clipmodel.Item

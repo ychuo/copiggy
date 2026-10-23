@@ -325,7 +325,7 @@ func (s *application) nativeCard(c *ui.Context, index int, item clipmodel.Item, 
 	state := s.nativeState()
 	analysis := clipmodel.Analysis{Type: item.Type}
 	if item.Type != clipmodel.TypeText && item.Type != clipmodel.TypeJSON && item.Type != clipmodel.TypeImage && item.Type != clipmodel.TypeLink {
-		analysis = clipmodel.Analyze(item.Text)
+		analysis = clipmodel.AnalyzeItem(item)
 	}
 	bg, fg, meta := nativeCardPalette(item.Type, analysis, p)
 	card := ui.Box(c).Key(item.ID).Size(nativeCardSize, nativeCardSize).Shrink(0).Radius(nativeCardRadius).Focusable().FocusRing(false).Role(ui.RoleButton).Label(s.nativeCardLabel(item)).Cursor(ui.CursorPointer).Clip()

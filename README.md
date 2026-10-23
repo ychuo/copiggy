@@ -7,7 +7,7 @@
 <p align="center">A little home for what you copy.</p>
 
 <p align="center">
-  <strong>v0.1.0</strong> · macOS · Native UI
+  <strong>v0.1.1</strong> · macOS · Native UI
 </p>
 
 <p align="center">
@@ -52,7 +52,11 @@ Packages are locally signed and not notarized. A copy downloaded from someone el
 4. Press **Return** or double-click a card to put it back on the clipboard and close the panel.
 5. Paste where you need it with **⌘V**.
 
-Browsing, previewing and choosing a format leave the clipboard unchanged until you copy. Return uses the original unless you explicitly choose JSON formatting, a color format, a dialing number or a timestamp unit. The original stays saved; these variants do not add history. Right-click the menu-bar icon for history retention, recording, appearance and language settings.
+Browsing, previewing and choosing a format leave the clipboard unchanged until you copy. Return uses the original unless you explicitly choose JSON formatting, a color format, a dialing number or a timestamp unit.
+
+Finder file selections use the same preview as their full paths, and copying them from Copiggy writes path text (one path per line for multiple files). Recording alone leaves the system clipboard unchanged, so copying and pasting files directly in Finder still works.
+
+Phone recognition uses offline country rules and a separately configurable region; preview includes flags and available city or state descriptions. The original stays saved; these variants do not add history. Right-click the menu-bar icon for history retention, recording, appearance, language and phone region settings.
 
 | Action | Shortcut |
 | --- | --- |

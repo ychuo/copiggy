@@ -11,6 +11,7 @@ const defaultRetentionDays = settings.DefaultRetentionDays
 func (s *application) applyPreferences(p settings.Preferences) {
 	p = settings.Normalize(p)
 	s.language, s.themePreference = p.Language, p.Theme
+	s.phoneRegion = p.PhoneRegion
 	s.monitoring, s.guardPreference = settings.Enabled(p.RecordingEnabled), settings.Enabled(p.PasteGuardEnabled)
 	s.retentionDays = settings.Retention(p.RetentionDays)
 	if s.viewState != nil {
@@ -19,7 +20,7 @@ func (s *application) applyPreferences(p settings.Preferences) {
 }
 func (s *application) preferenceSnapshot() settings.Preferences {
 	recording, guard, days := s.monitoring, s.guardPreference, s.retentionDays
-	return settings.Preferences{Language: s.currentLanguage(), Theme: s.themePreference, RecordingEnabled: &recording, PasteGuardEnabled: &guard, RetentionDays: &days}
+	return settings.Preferences{Language: s.currentLanguage(), Theme: s.themePreference, PhoneRegion: s.phoneRegion, RecordingEnabled: &recording, PasteGuardEnabled: &guard, RetentionDays: &days}
 }
 func (s *application) savePreferences(done func(error)) {
 	s.preferenceGeneration++

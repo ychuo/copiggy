@@ -63,7 +63,7 @@ func (s *application) nativeTimestampActions(c *ui.Context, item clipmodel.Item,
 			}
 		}
 	})
-	stamp := clipmodel.Analyze(item.Text).Timestamp
+	stamp := clipmodel.AnalyzeItem(item).Timestamp
 	if stamp == nil {
 		return
 	}
@@ -107,7 +107,7 @@ func nativeTimestampNumberSize(value string, width float32) float32 {
 
 func (s *application) nativeTimestampPreview(c *ui.Context, item clipmodel.Item, p nativeColors) {
 	width, height := c.Size()
-	stamp := clipmodel.Analyze(item.Text).Timestamp
+	stamp := clipmodel.AnalyzeItem(item).Timestamp
 	state, ink := s.semanticState(item), nativeTimestampColors()
 	nativePreviewLayout(c).Children(func() {
 		nativePreviewToolbarRow(c).Children(func() {

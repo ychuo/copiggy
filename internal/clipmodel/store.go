@@ -26,17 +26,21 @@ const MaxPinnedItems = 100
 // Item is an immutable snapshot when returned from a Store. An empty AllowedApps
 // slice means unrestricted; nonempty values are application bundle identifiers.
 type Item struct {
-	ID          string         `json:"id"`
-	Type        ContentType    `json:"type"`
-	Text        string         `json:"text"`
-	Image       *ImageMetadata `json:"image,omitempty"`
-	SourceApp   string         `json:"sourceApp"`
-	SourceAppID string         `json:"sourceAppId,omitempty"`
-	AllowedApps []string       `json:"allowedApps"`
-	ParentID    string         `json:"parentId,omitempty"`
-	CreatedAt   time.Time      `json:"createdAt"`
-	Pinned      bool           `json:"pinned,omitempty"`
-	fingerprint [sha256.Size]byte
+	ID    string         `json:"id"`
+	Type  ContentType    `json:"type"`
+	Text  string         `json:"text"`
+	Image *ImageMetadata `json:"image,omitempty"`
+	// Files is accepted only while decoding the former file-card representation.
+	// Restored and newly captured items use ordinary path text and leave it nil.
+	Files             []FileReference `json:"files,omitempty"`
+	RecognitionRegion string          `json:"recognitionRegion,omitempty"`
+	SourceApp         string          `json:"sourceApp"`
+	SourceAppID       string          `json:"sourceAppId,omitempty"`
+	AllowedApps       []string        `json:"allowedApps"`
+	ParentID          string          `json:"parentId,omitempty"`
+	CreatedAt         time.Time       `json:"createdAt"`
+	Pinned            bool            `json:"pinned,omitempty"`
+	fingerprint       [sha256.Size]byte
 }
 
 // Allows reports whether the item permits use in appID. The native adapter is
@@ -239,6 +243,7 @@ func (s *Store) RestorePinned(item Item, content Content) error {
 // any authority over the current system clipboard. Callers validate a complete
 // snapshot in a fresh Store before exposing it to the application.
 func (s *Store) RestoreItem(item Item, content Content) error {
+	content.RecognitionRegion = item.RecognitionRegion
 	content, valid := normalizeContent(content)
 	number, err := strconv.ParseUint(strings.TrimPrefix(item.ID, "item-"), 10, 64)
 	if !valid || !strings.HasPrefix(item.ID, "item-") || err != nil || number == 0 || number >= ^uint64(0)-1 ||
@@ -252,11 +257,14 @@ func (s *Store) RestoreItem(item Item, content Content) error {
 	if item.Type != content.Type && (item.Type == TypeImage || content.Type == TypeImage) {
 		return ErrInvalidPin
 	}
-	if _, valid := normalizeContent(Content{Type: item.Type, Text: item.Text, Image: item.Image}); !valid {
+	if _, valid := normalizeContent(Content{Type: item.Type, Text: item.Text, Image: item.Image, RecognitionRegion: item.RecognitionRegion, Fingerprint: content.Fingerprint}); !valid {
 		return ErrInvalidPin
 	}
 	item.Type = content.Type
 	if item.Image != nil && *item.Image != *content.Image {
+		return ErrInvalidPin
+	}
+	if len(item.Files) != 0 {
 		return ErrInvalidPin
 	}
 	apps := normalizeApps(item.AllowedApps)
@@ -353,15 +361,16 @@ func (s *Store) captureLocked(content Content, sourceApp string, allowedApps []s
 		return cloneItem(existing)
 	}
 	item := Item{
-		ID:          s.newIDLocked("item"),
-		Type:        content.Type,
-		Text:        content.Text,
-		Image:       content.Image,
-		SourceApp:   sourceApp,
-		SourceAppID: content.SourceAppID,
-		AllowedApps: append([]string(nil), allowedApps...),
-		CreatedAt:   time.Now(),
-		fingerprint: content.Fingerprint,
+		ID:                s.newIDLocked("item"),
+		Type:              content.Type,
+		Text:              content.Text,
+		Image:             content.Image,
+		RecognitionRegion: content.RecognitionRegion,
+		SourceApp:         sourceApp,
+		SourceAppID:       content.SourceAppID,
+		AllowedApps:       append([]string(nil), allowedApps...),
+		CreatedAt:         time.Now(),
+		fingerprint:       content.Fingerprint,
 	}
 	s.insertLocked(item)
 	return cloneItem(item)
@@ -369,7 +378,12 @@ func (s *Store) captureLocked(content Content, sourceApp string, allowedApps []s
 
 func sameCapturedContent(item Item, content Content) bool {
 	if content.Fingerprint == ([sha256.Size]byte{}) || item.fingerprint != content.Fingerprint ||
-		item.Type != content.Type || item.Text != content.Text {
+		item.Text != content.Text {
+		return false
+	}
+	// A region preference can change text interpretation, never the identity
+	// of exact saved bytes. Preserve the first record's context on recapture.
+	if item.Type != content.Type && (item.Type == TypeImage || content.Type == TypeImage) {
 		return false
 	}
 	if item.Image == nil || content.Image == nil {
@@ -416,6 +430,7 @@ func (s *Store) trimLocked() {
 
 func cloneItem(item Item) Item {
 	item.AllowedApps = append([]string(nil), item.AllowedApps...)
+	item.Files = slices.Clone(item.Files)
 	if item.Image != nil {
 		metadata := *item.Image
 		item.Image = &metadata

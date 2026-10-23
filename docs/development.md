@@ -26,6 +26,8 @@ resources/
   brand/       Approved PNG artwork, menu-bar templates and Copiggy.icon source
   fonts/       Inter and regional Noto Sans faces, provenance and licenses
   icons/       SVG icons and license
+  flags/       Embedded numbering-region SVG flags, provenance and license
+  licenses/    Upstream numbering and geocoding metadata license
   locales/     Multilingual content-type search and recognition labels
 scripts/
   env.sh       Shared pinned toolchain, cache and production environment
@@ -37,7 +39,7 @@ scripts/
 build/         Generated output; ignored
   Copiggy.app  Official application bundle and launch path
   check/       Binary produced by check.sh
-  releases/    Release attachments grouped by version (v0.1.0, etc.)
+  releases/    Release attachments grouped by version (v0.1.1, etc.)
   archive/     Retained older local outputs; not used by build scripts
   .staging/    Temporary packaging directories, cleaned after each run
 .cache/        Toolchain, modules and build cache; ignored
@@ -51,7 +53,9 @@ Business commands run in order on an application worker. Native clipboard reads/
 
 `storage` owns file formats and atomic writes. It never decides which record is current or protected. `clipmodel` owns pure record rules, and `settings` owns preference defaults. `linkicons` has no MyGo dependency and returns ordinary Go images; the UI alone creates and caches bitmaps. Its entry point rejects protected records before any cache or network lookup.
 
-`clipmodel.Analyze` derives typed display values from captured text. Explicit HEX/RGB/HSL, dialing-number and timestamp-unit choices select a session-only copy format; `clipmodel.CopyText` derives its plain text again from the trusted saved item. Opening preview alone keeps exact-original copying. UTC/local affects only the date explanation; milliseconds-to-seconds output truncates subsecond digits while saved milliseconds remain intact. Derived formats and masked strings never replace persisted clipboard authority. Restore reclassifies legacy text records while retaining their exact representations and scope. `contentactions` derives external targets from trusted saved records and does no I/O; the UI launches them only after an explicit action. Calendar exports use a private temporary file and the system calendar import flow. Format choices and sensitive reveal state belong to one preview session and clear on close or navigation. Reveal and zoom do not select a copy format; changing any preview control alone never writes the clipboard.
+`clipmodel.AnalyzeInRegion` derives typed display values from captured text and the resolved phone region; saved records use `AnalyzeItem` so preference changes cannot reinterpret existing numbers. Explicit HEX/RGB/HSL, dialing-number and timestamp-unit choices select a session-only copy format; `clipmodel.CopyText` derives its plain text again from the trusted saved item. Opening preview alone keeps the default copy behavior. Finder file references always copy as full path text, while other records copy their exact original representations unless a variant is selected. Capturing and previewing file references never modify the system clipboard or read file contents. UTC/local affects only the date explanation; milliseconds-to-seconds output truncates subsecond digits while saved milliseconds remain intact. Derived formats and masked strings never replace persisted clipboard authority. Restore reclassifies legacy text records while retaining their exact representations and scope. `contentactions` derives external targets from trusted saved records and does no I/O; the UI launches them only after an explicit action. Calendar exports use a private temporary file and the system calendar import flow. Format choices and sensitive reveal state belong to one preview session and clear on close or navigation. Reveal and zoom do not select a copy format; changing any preview control alone never writes the clipboard.
+
+Phone numbering and geographic descriptions use embedded libphonenumber metadata. Recognition takes an explicit international prefix or the saved regional context, independently of interface language. Preview shows an embedded SVG flag and may load a city, province or state description asynchronously; the result belongs to the current preview and language, and stale completions are discarded. Detailed geocoding never runs during capture or card rendering, makes no network requests, and describes the numbering area rather than the subscriber's current location.
 
 MapKit snapshots use at most three concurrent native requests/decodes. Visible unrestricted cards are checked against the trusted store again before starting work, and completions check cache identity and record scope. Preview/card snapshots and link metadata share a bounded 24-entry/24 MiB memory cache. Hiding or quitting cancels pending work; map rendering preserves system attribution. Native integration remains manually verified, while pure validation, cancellation and cache behavior are tested in memory.
 
@@ -111,7 +115,7 @@ The empty-history mascot uses two embedded PNG frames and three native rounded s
 
 Changing the bundle location or rebuilding an ad-hoc-signed binary can require the user to refresh Accessibility permission. Do not modify the TCC database or automate authentication.
 
-History and preferences remain in `~/Library/Application Support/Copiggy/`. `history.json` is a versioned, atomic snapshot of ordinary and pinned records and their exact representations; `preferences.json` holds language, appearance, recording, desired Paste Guard state and retention. First launch imports the old `pinned.json` only when the unified history file is absent. Tests use temporary fixtures; never copy real clipboard contents into repository fixtures or documentation.
+History and preferences remain in `~/Library/Application Support/Copiggy/`. `history.json` is a versioned, atomic snapshot of ordinary and pinned records and their exact representations and recognition regions; `preferences.json` holds language, appearance, phone region, recording, desired Paste Guard state and retention. First launch imports the old `pinned.json` only when the unified history file is absent. Tests use temporary fixtures; never copy real clipboard contents into repository fixtures or documentation.
 
 Preference changes enqueue one complete immutable snapshot and report actual save failures. Startup restores them before creating the panel or enabling recording/guard behavior. Explicit `light` or `dark` takes precedence over the system appearance; older language-only files remain supported. Failed saves show localized status instead of silently claiming success. UI tests inject a preference-saving port; repository tests use temporary paths.
 
@@ -119,8 +123,8 @@ Preference changes enqueue one complete immutable snapshot and report actual sav
 
 | State | Behavior |
 | --- | --- |
-| Language, appearance, pause, desired guard and retention | Stored in `preferences.json` |
-| Ordinary and pinned records, provenance, time and allowed apps | Stored in `history.json`; pins are exempt from age expiry |
+| Language, appearance, phone region, pause, desired guard and retention | Stored in `preferences.json` |
+| Ordinary and pinned records, recognition region, provenance, time and allowed apps | Stored in `history.json`; pins are exempt from age expiry |
 | History limits | 100 ordinary / 100 pinned records, 64 MiB shared content; ordinary age limit 1/7/30 days or none |
 | Current clipboard revision and active protection binding | Memory only; never restored as authority over a newer clipboard |
 | Search, pin filter, selection, scroll, preview and copy-format choices | Session-only |

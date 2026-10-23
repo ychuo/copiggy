@@ -23,6 +23,7 @@ type History struct {
 	data                   map[string]clipmodel.Representations
 	repo                   HistoryRepository
 	retention              int
+	recognitionRegion      string
 	loaded, blocked, dirty bool
 }
 
@@ -144,6 +145,40 @@ func (h *History) Load(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// Give legacy records one stable context, then persist it. Subsequent
+	// preference changes apply to new captures and cannot reinterpret history.
+	migratedRegion := false
+	if h.recognitionRegion != "" {
+		for index := range records {
+			if records[index].Item.RecognitionRegion == "" {
+				region := h.recognitionRegion
+				legacy := clipmodel.Analyze(records[index].Item.Text)
+				// Keep established interpretations such as timestamps. A new
+				// default could otherwise turn one into an ambiguous phone/text.
+				if legacy.Type != clipmodel.TypeText {
+					region = "ZZ"
+				}
+				// Preserve the former deterministic interpretation of grouped or
+				// international phones even when the current system region differs.
+				if phone := legacy.Phone; phone != nil {
+					// An IDD prefix such as 00 or 011 belongs to the originating
+					// numbering plan, which can differ from the destination region.
+					for _, candidate := range []string{phone.Region, "US", "GB"} {
+						if candidate = clipmodel.NormalizePhoneRegion(candidate); candidate == "" {
+							continue
+						}
+						parsed := clipmodel.AnalyzeInRegion(records[index].Item.Text, candidate).Phone
+						if parsed != nil && parsed.E164 == phone.E164 && parsed.Extension == phone.Extension {
+							region = candidate
+							break
+						}
+					}
+				}
+				records[index].Item.RecognitionRegion = region
+				migratedRegion = true
+			}
+		}
+	}
 	model, err := clipmodel.RestoreRecords(records)
 	if err != nil {
 		h.blocked = true
@@ -161,7 +196,7 @@ func (h *History) Load(ctx context.Context) error {
 	if err = trim(model, data, h.retention, time.Now()); err != nil {
 		return err
 	}
-	if !authoritative || len(model.Items()) != len(original.Items()) {
+	if !authoritative || migratedRegion || len(model.Items()) != len(original.Items()) {
 		if err = h.save(ctx, model, data); err != nil {
 			h.commit(original, originalData, true)
 			return fmt.Errorf("%w: %w", ErrHistorySave, err)
@@ -200,6 +235,7 @@ func (h *History) Capture(ctx context.Context, data clipmodel.Representations, s
 	content.SourceAppID = source.BundleID
 	h.commands.Lock()
 	defer h.commands.Unlock()
+	content.RecognitionRegion = h.recognitionRegion
 	if err = ctx.Err(); err != nil {
 		return clipmodel.Item{}, false, err
 	}
@@ -284,6 +320,18 @@ func (h *History) SetRetention(days int) {
 	}
 	h.commands.Lock()
 	h.retention = days
+	h.commands.Unlock()
+}
+
+// SetRecognitionRegion affects future captures. Each record saves its resolved
+// context, while an exact duplicate retains the original record's context.
+func (h *History) SetRecognitionRegion(region string) {
+	region = clipmodel.NormalizePhoneRegion(region)
+	if region == "" {
+		region = "ZZ"
+	}
+	h.commands.Lock()
+	h.recognitionRegion = region
 	h.commands.Unlock()
 }
 func (h *History) ClearCurrent() {

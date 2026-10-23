@@ -19,6 +19,20 @@ func ContentFromRepresentations(data Representations) (Content, error) {
 	if err != nil {
 		return Content{}, err
 	}
+	files, err := FilesFromRepresentations(data)
+	if err != nil {
+		return Content{}, err
+	}
+	if len(files) > 0 {
+		text, err := FilePathsText(files)
+		if err != nil {
+			return Content{}, err
+		}
+		if len(text) > 1<<20 {
+			return Content{}, ContentError("Text exceeds 1 MiB · Not recorded")
+		}
+		return Content{Type: Analyze(text).Type, Text: text, Fingerprint: fingerprint}, nil
+	}
 	if text, err := data.Read(TextFormat); err == nil && len(text) > 0 {
 		if len(text) > 1<<20 {
 			return Content{}, ContentError("Text exceeds 1 MiB · Not recorded")
