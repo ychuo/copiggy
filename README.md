@@ -19,7 +19,11 @@
 
 Copiggy is a native clipboard companion for macOS. Browse what you copied, keep useful clips, and prepare content before pasting. A compact card panel stays one shortcut away; Paste Guard helps you avoid pasting into the wrong app.
 
-<!-- Add the product demo and screenshots here when available. -->
+[![Copiggy — copied once, within reach. Watch the 20-second introduction.](docs/media/copiggy-intro-poster.jpg)](docs/media/copiggy-intro.mp4)
+
+<p align="center">
+  <a href="docs/media/copiggy-intro.mp4">Watch the 20-second introduction</a> · Sound on · 1080p / 60 fps
+</p>
 
 ## Features
 
