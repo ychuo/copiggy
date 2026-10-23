@@ -49,7 +49,7 @@ func (s *application) nativeDateCard(c *ui.Context, date *clipmodel.DateValue) {
 
 func (s *application) nativeDatePreview(c *ui.Context, item clipmodel.Item, p nativeColors) {
 	_, height := c.Size()
-	date := clipmodel.Analyze(item.Text).Date
+	date := clipmodel.AnalyzeItem(item).Date
 	ink := nativeDateColors()
 	nativePreviewLayout(c).Children(func() {
 		nativePreviewToolbarRow(c).Children(func() {

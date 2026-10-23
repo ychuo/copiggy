@@ -13,10 +13,12 @@ import (
 type ContentType string
 
 const (
-	TypeText        ContentType = "text"
-	TypeJSON        ContentType = "json"
-	TypeLink        ContentType = "link"
-	TypeImage       ContentType = "image"
+	TypeText  ContentType = "text"
+	TypeJSON  ContentType = "json"
+	TypeLink  ContentType = "link"
+	TypeImage ContentType = "image"
+	// TypeFiles is retained only to decode and migrate older history records.
+	TypeFiles       ContentType = "files"
 	TypeEmail       ContentType = "email"
 	TypePhone       ContentType = "phone"
 	TypeCoordinates ContentType = "coordinates"
@@ -42,10 +44,11 @@ type ImageMetadata struct {
 // means text; all text-based content is classified from Text. Image content
 // must explicitly use TypeImage and supply valid PNG metadata.
 type Content struct {
-	Type        ContentType
-	Text        string
-	Image       *ImageMetadata
-	SourceAppID string
+	Type              ContentType
+	Text              string
+	Image             *ImageMetadata
+	RecognitionRegion string
+	SourceAppID       string
 	// Fingerprint is the native adapter's SHA-256 of every retained item and
 	// representation. Zero means plain text only, or unknown image bytes. Image
 	// metadata alone is never sufficient to identify a duplicate.
@@ -53,13 +56,17 @@ type Content struct {
 }
 
 func normalizeContent(content Content) (Content, bool) {
+	if content.RecognitionRegion != "" && content.RecognitionRegion != "ZZ" &&
+		NormalizePhoneRegion(content.RecognitionRegion) != content.RecognitionRegion {
+		return Content{}, false
+	}
 	switch content.Type {
 	case "", TypeText, TypeJSON, TypeLink, TypeEmail, TypePhone, TypeCoordinates,
 		TypeDate, TypeTimestamp, TypeColor, TypeFilePath, TypeOTP, TypeToken, TypePrivateKey:
 		if content.Text == "" {
 			return Content{}, false
 		}
-		content.Type = classifyText(content.Text)
+		content.Type = AnalyzeInRegion(content.Text, content.RecognitionRegion).Type
 		content.Image = nil
 		if content.Fingerprint == ([sha256.Size]byte{}) {
 			content.Fingerprint = textFingerprint(content.Text)

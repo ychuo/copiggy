@@ -2,6 +2,8 @@ package nativeui
 
 import (
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"copiggy/internal/clipmodel"
 	"github.com/egoist/mygo/ui"
@@ -29,14 +31,15 @@ func nativePhoneLines(display string) []string {
 	}
 	best, distance := -1, len(display)
 	for index, char := range display {
-		if char != ' ' {
+		if !unicode.IsSpace(char) {
 			continue
 		}
-		left, right := strings.TrimSpace(display[:index]), strings.TrimSpace(display[index+1:])
+		_, boundarySize := utf8.DecodeRuneInString(display[index:])
+		left, right := strings.TrimSpace(display[:index]), strings.TrimSpace(display[index+boundarySize:])
 		if left == "" || right == "" {
 			continue
 		}
-		delta := len(left) - len(right)
+		delta := utf8.RuneCountInString(left) - utf8.RuneCountInString(right)
 		if delta < 0 {
 			delta = -delta
 		}
@@ -45,9 +48,50 @@ func nativePhoneLines(display string) []string {
 		}
 	}
 	if best >= 0 {
-		return []string{strings.TrimSpace(display[:best]), strings.TrimSpace(display[best+1:])}
+		_, boundarySize := utf8.DecodeRuneInString(display[best:])
+		return []string{strings.TrimSpace(display[:best]), strings.TrimSpace(display[best+boundarySize:])}
 	}
 	return []string{display}
+}
+
+// A URI, extension or full-width digit sequence can exceed the available width
+// even at the minimum readable size. Split only its visual lines, preserving
+// every non-whitespace character; clipboard copies still use the saved record.
+func nativePhoneFittedLines(display string, preferred, minimum, width float32) ([]string, float32) {
+	lines := nativePhoneLines(display)
+	size := nativePhoneNumberSize(lines, preferred, minimum, width)
+	var fitted []string
+	for _, line := range lines {
+		font := nativeContentFontFor(line, size, nativeWeightTitle)
+		font.Features = "tnum"
+		fits := func(value string) bool {
+			measured, _ := ui.ShapeText(value, font, 0).Size()
+			return measured <= width
+		}
+		for !fits(line) && utf8.RuneCountInString(line) > 1 {
+			runes := []rune(line)
+			low, high := 1, len(runes)
+			for low < high {
+				middle := (low + high + 1) / 2
+				if fits(string(runes[:middle])) {
+					low = middle
+				} else {
+					high = middle - 1
+				}
+			}
+			// Keep a URI parameter together when it fits on the next line.
+			for index := low - 1; index > 0; index-- {
+				if runes[index] == ';' {
+					low = index
+					break
+				}
+			}
+			fitted = append(fitted, string(runes[:low]))
+			line = string(runes[low:])
+		}
+		fitted = append(fitted, line)
+	}
+	return fitted, size
 }
 
 func nativePhoneNumberSize(lines []string, preferred, minimum, width float32) float32 {
@@ -72,9 +116,26 @@ func nativePhoneNumber(c *ui.Context, lines []string, size float32) {
 	})
 }
 
+func nativePhoneCardLayout(phone clipmodel.PhoneValue) ([]string, float32) {
+	display := phone.Display
+	if strings.HasPrefix(strings.ToLower(display), "tel:") {
+		// A compact card summarizes the phone URI's actual dialing target;
+		// the preview below retains its complete original URI and parameters.
+		display = phone.DialingNumber()
+	}
+	lines, size := nativePhoneFittedLines(display, nativePhoneCardNumberSize, 14, nativeCardSize-2*nativeCardPadding)
+	const height = 116 - nativeCardPadding - nativeCardHeaderHeight - nativeCardContentGap - nativeInlineGap
+	if float32(len(lines))*size*1.15 > height {
+		// Repeated separators are valid input but must not push the compact
+		// number into the dial pad or shared footer. Its complete source is
+		// still available in the scrollable preview and original copy.
+		return nativePhoneFittedLines(phone.DialingNumber(), nativePhoneCardNumberSize, 14, nativeCardSize-2*nativeCardPadding)
+	}
+	return lines, size
+}
+
 func nativePhoneCard(c *ui.Context, phone clipmodel.PhoneValue) {
-	lines := nativePhoneLines(phone.Display)
-	size := nativePhoneNumberSize(lines, nativePhoneCardNumberSize, 14, nativeCardSize-2*nativeCardPadding)
+	lines, size := nativePhoneCardLayout(phone)
 	ui.Column(c).Fill().Padding(nativeInlineGap, 0, 0).Children(func() {
 		// A single ungrouped number sits on the same visual center as two lines.
 		if len(lines) == 1 {
@@ -110,9 +171,13 @@ func nativePhoneArtwork(p *ui.Painter, r ui.Rect) {
 
 func (s *application) nativePhonePreview(c *ui.Context, item clipmodel.Item, p nativeColors) {
 	width, height := c.Size()
-	value := clipmodel.Analyze(item.Text)
+	value := clipmodel.AnalyzeItem(item)
 	state := s.semanticState(item)
 	ink := nativePhoneColors()
+	location := ""
+	if value.Phone != nil {
+		location = s.nativePhoneLocation(item, *value.Phone)
+	}
 	// A thin glass margin keeps the reading surface separate from AppKit's
 	// continuous popover arrow, just like the other paper-based previews.
 	nativePreviewLayout(c).Children(func() {
@@ -129,18 +194,15 @@ func (s *application) nativePhonePreview(c *ui.Context, item clipmodel.Item, p n
 			ui.Scroll(c).Grow(1).MinHeight(0).FillWidth().Children(func() {
 				ui.Column(c).FillWidth().MinHeight(max(180, contentHeight)).Gap(20).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
 					if phone := value.Phone; phone != nil {
-						lines := nativePhoneLines(phone.Display)
+						display := phone.Display
 						if state.Dialing {
-							lines = []string{phone.Number}
+							display = phone.DialingNumber()
 						}
-						size := nativePhoneNumberSize(lines, nativePhonePreviewNumberSize, 24, width-2*(nativePreviewEdgeInset+nativePreviewHeroInset))
+						lines, size := nativePhoneFittedLines(display, nativePhonePreviewNumberSize, 24, width-2*(nativePreviewEdgeInset+nativePreviewHeroInset))
 						nativePhoneNumber(c, lines, size)
 						ui.Column(c).FillWidth().Gap(6).AlignItems(ui.Center).TextColor(ink.muted).Children(func() {
-							label := s.tr("Phone")
-							if phone.International {
-								label = s.tr("International")
-							}
-							ui.Text(c, label).FontSize(nativeTextBody).FontWeight(nativeWeightBody).SingleLine()
+							s.nativePhoneRegionMetadata(c, *phone)
+							s.nativePhoneLocationMetadata(c, location)
 							nativeContentText(c, phone.Number).FontSize(nativeTextPreview).FontWeight(nativeWeightBody).FontFeatures("tnum").SingleLine()
 						})
 					} else {

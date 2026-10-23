@@ -24,7 +24,7 @@ var ErrInvalidCopyFormat = errors.New("copy format is unavailable for this conte
 // must still agree with its type; stale annotations cannot reinterpret content.
 // The exact captured item and its representations are never modified.
 func CopyText(item Item, format CopyFormat) (string, error) {
-	value := Analyze(item.Text)
+	value := AnalyzeItem(item)
 	if value.Type != item.Type {
 		return "", ErrInvalidCopyFormat
 	}
@@ -54,7 +54,7 @@ func CopyText(item Item, format CopyFormat) (string, error) {
 		if item.Type != TypePhone || value.Phone == nil {
 			return "", ErrInvalidCopyFormat
 		}
-		return value.Phone.Number, nil
+		return value.Phone.DialingNumber(), nil
 	default:
 		return "", ErrInvalidCopyFormat
 	}

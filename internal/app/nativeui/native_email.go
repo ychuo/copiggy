@@ -88,7 +88,7 @@ func nativeEmailArtwork(p *ui.Painter, r ui.Rect) {
 
 func (s *application) nativeEmailPreview(c *ui.Context, item clipmodel.Item, p nativeColors) {
 	_, height := c.Size()
-	value := clipmodel.Analyze(item.Text)
+	value := clipmodel.AnalyzeItem(item)
 	ink := nativeEmailColors()
 	// The popover and arrow remain system glass. Only the letter's reading
 	// surface gets paper, so desktop detail cannot compete with the address.

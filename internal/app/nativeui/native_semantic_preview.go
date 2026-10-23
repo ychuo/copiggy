@@ -20,12 +20,13 @@ type nativeSemanticPreviewState struct {
 	CopyFormat                           clipmodel.CopyFormat
 	Revealed, UTC, Milliseconds, Dialing bool
 	ColorFormat, MapZoom, ImageZoom      int
+	PhoneLocation                        *nativePhoneLocationState
 }
 
 func (s *application) semanticState(item clipmodel.Item) *nativeSemanticPreviewState {
 	if s.semanticPreview.ItemID != item.ID {
 		s.semanticPreview = nativeSemanticPreviewState{ItemID: item.ID}
-		if value := clipmodel.Analyze(item.Text); value.Timestamp != nil {
+		if value := clipmodel.AnalyzeItem(item); value.Timestamp != nil {
 			s.semanticPreview.Milliseconds = value.Timestamp.Unit == "ms"
 		}
 	}
@@ -120,7 +121,7 @@ func (s *application) openNativeContent(id string) {
 	if !exists {
 		return
 	}
-	target, err := contentactions.OpenTarget(item.Item.Text)
+	target, err := contentactions.OpenItemTarget(item.Item)
 	if err != nil {
 		s.reportNativeError("derive content action", err, "Could not open content")
 		return

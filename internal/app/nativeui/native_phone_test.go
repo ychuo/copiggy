@@ -61,7 +61,7 @@ func TestPhonePresentationPreservesCopiedGroups(t *testing.T) {
 }
 
 func TestPhoneNumberFitsCardAboveDialPad(t *testing.T) {
-	for _, raw := range []string{"+1 (202) 555-0148", "+86 138 0013 8000", "+123456789012345", "(202) 555-0148"} {
+	for _, raw := range []string{"+1 (202) 555-0148", "+86 138 0013 8000", "+493012345678901", "(202) 555-0148"} {
 		t.Run(raw, func(t *testing.T) {
 			s, item := semanticPreviewFixture(t, raw)
 			tt := ui.NewTester(s.nativeView, 1140, nativeTrayHeight)
@@ -70,6 +70,9 @@ func TestPhoneNumberFitsCardAboveDialPad(t *testing.T) {
 				t.Fatal("phone card is missing")
 			}
 			phone := clipmodel.Analyze(raw).Phone
+			if phone == nil {
+				t.Fatal("fixture was not recognized as a phone number")
+			}
 			lines := nativePhoneLines(phone.Display)
 			for _, line := range lines {
 				r, found := tt.Find(line)

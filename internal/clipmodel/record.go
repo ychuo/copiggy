@@ -167,11 +167,23 @@ func RestoreRecords(records []Record) (*Store, error) {
 		if err != nil {
 			return nil, err
 		}
+		if item.Type == TypeFiles {
+			// Older releases displayed basenames and a separate file-card type.
+			// Verify those annotations against the retained payload before
+			// replacing them with the same path text as a new capture.
+			files, err := FilesFromRepresentations(record.Data)
+			if err != nil || len(files) == 0 || item.Image != nil ||
+				item.Text != fileNames(files) || !slices.Equal(item.Files, files) {
+				return nil, ErrInvalidPin
+			}
+			item.Text, item.Type, item.Files = content.Text, content.Type, nil
+		}
 		total += record.Data.ByteSize()
 		if total > MaxHistoryBytes {
 			return nil, ErrPinLimit
 		}
 		content.SourceAppID = item.SourceAppID
+		content.RecognitionRegion = item.RecognitionRegion
 		if err := model.RestoreItem(item, content); err != nil {
 			return nil, err
 		}

@@ -29,14 +29,15 @@ var (
 // is copied from the source. Validation uses the internal snapshot identified by ID,
 // so editing the returned value cannot silently remove its restrictions.
 type Draft struct {
-	ID          string          `json:"id"`
-	Text        string          `json:"text"`
-	SourceApp   string          `json:"sourceApp"`
-	SourceAppID string          `json:"sourceAppId,omitempty"`
-	AllowedApps []string        `json:"allowedApps"`
-	ParentID    string          `json:"parentId"`
-	Kind        EnhancementKind `json:"kind"`
-	CreatedAt   time.Time       `json:"createdAt"`
+	ID                string          `json:"id"`
+	Text              string          `json:"text"`
+	RecognitionRegion string          `json:"recognitionRegion,omitempty"`
+	SourceApp         string          `json:"sourceApp"`
+	SourceAppID       string          `json:"sourceAppId,omitempty"`
+	AllowedApps       []string        `json:"allowedApps"`
+	ParentID          string          `json:"parentId"`
+	Kind              EnhancementKind `json:"kind"`
+	CreatedAt         time.Time       `json:"createdAt"`
 }
 
 // Enhance runs a deterministic local transformation and stores a preview draft.
@@ -84,14 +85,15 @@ func (s *Store) Enhance(ctx context.Context, id string, kind EnhancementKind) (D
 		return Draft{}, err
 	}
 	draft := Draft{
-		ID:          s.newIDLocked("draft"),
-		Text:        text,
-		SourceApp:   source.SourceApp,
-		SourceAppID: source.SourceAppID,
-		AllowedApps: append([]string(nil), source.AllowedApps...),
-		ParentID:    source.ID,
-		Kind:        kind,
-		CreatedAt:   time.Now(),
+		ID:                s.newIDLocked("draft"),
+		Text:              text,
+		RecognitionRegion: source.RecognitionRegion,
+		SourceApp:         source.SourceApp,
+		SourceAppID:       source.SourceAppID,
+		AllowedApps:       append([]string(nil), source.AllowedApps...),
+		ParentID:          source.ID,
+		Kind:              kind,
+		CreatedAt:         time.Now(),
 	}
 	s.drafts[draft.ID] = cloneDraft(draft)
 	return cloneDraft(draft), nil

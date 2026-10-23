@@ -53,6 +53,10 @@ var statusMenuNative struct {
 // inside AppKit's nested menu-tracking event loop.
 var statusMenuSelections = make(map[uintptr]*statusMenuSelection)
 
+// Bound the complete tree while leaving room for country-sized submenus
+// alongside the application's settings and controls.
+const maxStatusMenuEntries = 1024
+
 func initStatusMenuNative() error {
 	if err := initGlassNative(); err != nil {
 		return err
@@ -89,7 +93,7 @@ func initStatusMenuNative() error {
 // The temporary menu is never installed as the application's main menu and
 // registers no global shortcuts.
 func PopupStatusMenu(entries []MenuEntry, dark bool, anchor mygo.Rectangle) (selectedID string, err error) {
-	if err := validateStatusMenu(entries, anchor); err != nil {
+	if err := ValidateStatusMenu(entries, anchor); err != nil {
 		return "", err
 	}
 	if err := initStatusMenuNative(); err != nil {
@@ -139,7 +143,10 @@ func PopupStatusMenu(entries []MenuEntry, dark bool, anchor mygo.Rectangle) (sel
 	return selectedID, err
 }
 
-func validateStatusMenu(entries []MenuEntry, anchor mygo.Rectangle) error {
+// ValidateStatusMenu checks the complete menu tree without accessing AppKit or
+// opening a menu. Composed settings menus can be checked at the same boundary
+// that PopupStatusMenu uses before native presentation.
+func ValidateStatusMenu(entries []MenuEntry, anchor mygo.Rectangle) error {
 	if anchor.Width <= 0 || anchor.Height <= 0 || anchor.Width > 1e7 || anchor.Height > 1e7 ||
 		anchor.X < -1e7 || anchor.X > 1e7 || anchor.Y < -1e7 || anchor.Y > 1e7 {
 		return errors.New("invalid status menu anchor")
@@ -156,7 +163,7 @@ func validateStatusMenu(entries []MenuEntry, anchor mygo.Rectangle) error {
 		}
 		for _, entry := range items {
 			count++
-			if count > 256 {
+			if count > maxStatusMenuEntries {
 				return errors.New("status menu item count exceeds limit")
 			}
 			if entry.Separator {

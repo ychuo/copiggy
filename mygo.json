@@ -1,7 +1,7 @@
 {
   "name": "Copiggy",
   "identifier": "dev.copiggy",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "main": ".",
   "out": "build",
   "icon": "resources/brand/app-icon.png",
@@ -10,7 +10,7 @@
     "minimumSystemVersion": "13.0",
     "signingIdentity": "-",
     "infoPlist": {
-      "CFBundleVersion": "2",
+      "CFBundleVersion": "3",
       "LSUIElement": true,
       "CFBundleDevelopmentRegion": "en",
       "CFBundleLocalizations": ["en", "zh-Hans", "zh-Hant", "ja"],

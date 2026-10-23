@@ -164,6 +164,7 @@ func (s *application) nativeTrayMenu() *mygo.Menu {
 			{ID: "dark", Label: s.tr("Dark"), Type: mygo.MenuItemRadio, Checked: dark, Click: func(*mygo.MenuItem, *mygo.Window) { s.applyNativeTheme(true) }},
 		}},
 		{ID: "language", Label: s.tr("Language"), Submenu: languages},
+		{ID: "phone-region", Label: s.tr("Phone region"), Submenu: s.nativePhoneRegionMenu()},
 		mygo.Separator(),
 		{ID: "quit", Label: s.tr("Quit Copiggy"), Accelerator: "Cmd+Q", Click: func(*mygo.MenuItem, *mygo.Window) { mygo.App.Quit() }},
 	})

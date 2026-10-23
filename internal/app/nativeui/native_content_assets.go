@@ -83,7 +83,7 @@ func (s *application) nativeMapBitmapAt(item clipmodel.Item, zoom int, preview b
 	if !ok || len(record.Item.AllowedApps) != 0 || record.Item.Text != item.Text {
 		return nil
 	}
-	coordinate := clipmodel.Analyze(record.Item.Text).Coordinates
+	coordinate := clipmodel.AnalyzeItem(record.Item).Coordinates
 	if coordinate == nil {
 		return nil
 	}

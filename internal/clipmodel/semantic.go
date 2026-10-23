@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"math"
-	"net"
 	"net/mail"
 	"net/url"
 	"path"
@@ -37,8 +36,21 @@ type Analysis struct {
 type EmailValue struct{ Address, Local, Domain string }
 type PhoneValue struct {
 	Display, Number string
+	E164            string
 	International   bool
+	Region          string
+	CountryCode     int
+	Extension       string
 }
+
+// DialingNumber includes a validated extension without rewriting the saved text.
+func (phone PhoneValue) DialingNumber() string {
+	if phone.Extension != "" {
+		return phone.Number + ";ext=" + phone.Extension
+	}
+	return phone.Number
+}
+
 type CoordinatesValue struct{ Latitude, Longitude float64 }
 type DateValue struct {
 	// Without HasZone, Time holds civil fields in UTC solely to avoid local
@@ -67,6 +79,12 @@ func IsSensitiveType(kind ContentType) bool {
 // Analyze recognizes whole values, never matching an email or credential inside
 // arbitrary prose. Parsing is bounded and does not access disk or the network.
 func Analyze(text string) Analysis {
+	return AnalyzeInRegion(text, "")
+}
+
+// AnalyzeInRegion uses an explicit telephone numbering region. The region is
+// independent of UI language and time zone; no system or global state is read.
+func AnalyzeInRegion(text, region string) Analysis {
 	value := strings.TrimSpace(text)
 	plain := Analysis{Type: TypeText}
 	if value == "" {
@@ -112,10 +130,17 @@ func Analyze(text string) Analysis {
 	if date := analyzeDate(value); date != nil {
 		return Analysis{Type: TypeDate, Date: date}
 	}
-	if timestamp := analyzeTimestamp(value); timestamp != nil {
+	timestamp := analyzeTimestamp(value)
+	phone := analyzePhoneInRegion(value, region)
+	// A bare number can be both a valid local phone number and an epoch. Neither
+	// interpretation has stronger evidence, so do not silently choose an action.
+	if phone != nil && (timestamp != nil || analyzeTimestamp(normalizePhoneCharacters(value)) != nil) {
+		return plain
+	}
+	if timestamp != nil {
 		return Analysis{Type: TypeTimestamp, Timestamp: timestamp}
 	}
-	if phone := analyzePhone(value); phone != nil {
+	if phone != nil {
 		return Analysis{Type: TypePhone, Phone: phone}
 	}
 	return plain
@@ -210,60 +235,6 @@ func analyzeTimestamp(value string) *TimestampValue {
 		return nil
 	}
 	return &TimestampValue{Time: instant, Seconds: instant.Unix(), Milliseconds: milliseconds, Unit: unit}
-}
-
-func analyzePhone(value string) *PhoneValue {
-	if len(value) < 7 || len(value) > 32 || net.ParseIP(value) != nil {
-		return nil
-	}
-	if last := value[len(value)-1]; last < '0' || last > '9' {
-		return nil
-	}
-	var digits strings.Builder
-	groups, inGroup, openParen := 0, false, false
-	international := value[0] == '+'
-	for index, ch := range value {
-		if ch >= '0' && ch <= '9' {
-			digits.WriteRune(ch)
-			if !inGroup {
-				groups++
-				inGroup = true
-			}
-			continue
-		}
-		inGroup = false
-		switch ch {
-		case '+':
-			if index != 0 {
-				return nil
-			}
-		case '(':
-			if openParen {
-				return nil
-			}
-			openParen = true
-		case ')':
-			if !openParen {
-				return nil
-			}
-			openParen = false
-		case ' ', '-', '.':
-		default:
-			return nil
-		}
-	}
-	number := digits.String()
-	localGrouping := groups >= 3 || groups >= 2 && strings.Contains(value, "(")
-	if openParen || len(number) < 7 || len(number) > 15 || (!international && (!localGrouping || len(number) < 10)) {
-		return nil
-	}
-	if international {
-		if number[0] == '0' {
-			return nil
-		}
-		number = "+" + number
-	}
-	return &PhoneValue{Display: value, Number: number, International: international}
 }
 
 func analyzeFilePath(value string) *FilePathValue {

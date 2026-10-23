@@ -17,7 +17,19 @@ const writeToken = transfer.Format("dev.copiggy.write-token")
 
 // Read materializes the supported saved representations on MyGo's main thread.
 func (r *Reader) Read() (transfer.Data, error) {
-	return mygo.Clipboard.Read(transfer.Text, transfer.HTML, transfer.PNG)
+	before := r.ChangeCount()
+	data, err := mygo.Clipboard.Read(transfer.Text, transfer.HTML, transfer.PNG, transfer.FileList, transfer.URIList)
+	if err != nil {
+		return transfer.Data{}, err
+	}
+	payloads, err := readNativeFilePayloads()
+	if err != nil {
+		return transfer.Data{}, err
+	}
+	if before != r.ChangeCount() {
+		return transfer.Data{}, ErrChanged
+	}
+	return retainNativeFilePayloads(data, payloads)
 }
 
 // Write returns a generation only after an unguessable write marker proves

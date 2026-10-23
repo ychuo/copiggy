@@ -3,6 +3,7 @@
 package appkit
 
 import (
+	"strconv"
 	"testing"
 
 	nativeobjc "copiggy/internal/macos/internal/objc"
@@ -24,8 +25,8 @@ func TestStatusMenuSpaceGlyphPreservesNativeShortcut(t *testing.T) {
 		defer delete(statusMenuSelections, target)
 		modifiers := MenuControl | MenuOption | MenuShift
 		menu, err := buildStatusMenu([]MenuEntry{
-			{ID: "open", Label: "Open Clipboard", Key: " ", Modifiers: modifiers},
-			{ID: "quit", Label: "Quit Copiggy", Key: "q", Modifiers: MenuCommand},
+			{ID: "open", Label: "Open Clipboard", Symbol: "clipboard", Key: " ", Modifiers: modifiers},
+			{ID: "quit", Label: "Quit Copiggy", Symbol: "power", Key: "q", Modifiers: MenuCommand},
 		}, "", 0, target, selection)
 		if err != nil {
 			t.Fatal(err)
@@ -46,6 +47,11 @@ func TestStatusMenuSpaceGlyphPreservesNativeShortcut(t *testing.T) {
 		}
 		if visible == 0 || shortcut == 0 || quit == 0 {
 			t.Fatalf("Space must have a visible glyph and real native equivalent; visible=%v shortcut=%v quit=%v", visible != 0, shortcut != 0, quit != 0)
+		}
+		for _, item := range []uintptr{visible, shortcut, quit} {
+			if nativeobjc.Send(item, objc.RegisterName("image")) == 0 {
+				t.Fatal("native menu item lost its system symbol")
+			}
 		}
 		if nativeobjc.Send(visible, objc.RegisterName("isHidden")) != 0 ||
 			nativeobjc.Send(visible, objc.RegisterName("allowsAutomaticKeyEquivalentLocalization")) != 0 {
@@ -153,7 +159,26 @@ func TestStatusMenuAcceptsGroupedLocalizedSettings(t *testing.T) {
 		}},
 		{Label: "Pinned items stay", Disabled: true},
 	}
-	if err := validateStatusMenu(entries, mygo.Rectangle{X: 100, Width: 24, Height: 24}); err != nil {
+	if err := ValidateStatusMenu(entries, mygo.Rectangle{X: 100, Width: 24, Height: 24}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestStatusMenuBoundsTheCompleteTree(t *testing.T) {
+	// Nested items and separators both consume capacity. A large submenu must
+	// not bypass the limit, while a complete tree at the limit remains valid.
+	children := make([]MenuEntry, maxStatusMenuEntries)
+	for i := range children {
+		children[i] = MenuEntry{ID: "choice-" + strconv.Itoa(i), Label: "Choice"}
+	}
+	children[0] = MenuEntry{Separator: true}
+	entries := []MenuEntry{{ID: "choices", Label: "Choices", Submenu: children[:maxStatusMenuEntries-1]}}
+	anchor := mygo.Rectangle{X: 100, Width: 24, Height: 24}
+	if err := ValidateStatusMenu(entries, anchor); err != nil {
+		t.Fatalf("menu at the tree limit was rejected: %v", err)
+	}
+	entries[0].Submenu = children
+	if err := ValidateStatusMenu(entries, anchor); err == nil {
+		t.Fatal("oversized nested menu was accepted")
 	}
 }

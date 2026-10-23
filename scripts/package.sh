@@ -84,13 +84,19 @@ mv "$copiggy_bundle/Contents/MacOS/Copiggy" "$copiggy_bundle/Contents/MacOS/copi
 # their licenses, but do not ship duplicate assets or Icon Composer sources.
 mkdir -p "$copiggy_resources/licenses"
 cp resources/icons/LICENSE "$copiggy_resources/licenses/Phosphor.txt"
+cp resources/flags/LICENSE "$copiggy_resources/licenses/FlagIcons.txt"
 cp resources/fonts/inter/OFL.txt "$copiggy_resources/licenses/Inter.txt"
 cp resources/fonts/noto-sans-sc/OFL.txt "$copiggy_resources/licenses/NotoSansSC.txt"
 cp resources/fonts/noto-sans-tc/OFL.txt "$copiggy_resources/licenses/NotoSansTC.txt"
 cp resources/fonts/noto-sans-jp/OFL.txt "$copiggy_resources/licenses/NotoSansJP.txt"
 copiggy_mygo=$(go list -m -f '{{.Dir}}' github.com/egoist/mygo)
 cp "$copiggy_mygo/LICENSE" "$copiggy_resources/licenses/MyGo.txt"
-rm -rf "$copiggy_resources/brand" "$copiggy_resources/icons" "$copiggy_resources/locales" "$copiggy_resources/fonts"
+copiggy_phonenumbers=$(go list -m -f '{{.Dir}}' github.com/nyaruka/phonenumbers/v2)
+copiggy_protobuf=$(go list -m -f '{{.Dir}}' google.golang.org/protobuf)
+cp "$copiggy_phonenumbers/LICENSE" "$copiggy_resources/licenses/Phonenumbers.txt"
+cp "$copiggy_protobuf/LICENSE" "$copiggy_resources/licenses/Protobuf.txt"
+cp resources/licenses/Libphonenumber.txt "$copiggy_resources/licenses/Libphonenumber.txt"
+rm -rf "$copiggy_resources/brand" "$copiggy_resources/icons" "$copiggy_resources/locales" "$copiggy_resources/fonts" "$copiggy_resources/flags"
 rm -f "$copiggy_resources/resources.go"
 /usr/bin/plutil -lint "$copiggy_plist"
 /usr/bin/codesign --force --deep --sign "$copiggy_signing" "$copiggy_bundle"

@@ -63,7 +63,7 @@ func (s *application) nativeColorActions(c *ui.Context, item clipmodel.Item, p n
 }
 
 func (s *application) nativeColorPreview(c *ui.Context, item clipmodel.Item, p nativeColors) {
-	value := clipmodel.Analyze(item.Text).Color
+	value := clipmodel.AnalyzeItem(item).Color
 	if value == nil {
 		return
 	}

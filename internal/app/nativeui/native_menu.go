@@ -28,15 +28,16 @@ func (s *application) showNativeTrayMenu() {
 
 func (s *application) nativeMenuEntries(items []*mygo.MenuItem) []macos.MenuEntry {
 	symbols := map[string]string{
-		"open":       "clipboard",
-		"monitor":    "pause",
-		"guard":      "shield",
-		"retention":  "clock",
-		"appearance": "circle.lefthalf.filled",
-		"light":      "sun.max",
-		"dark":       "moon",
-		"language":   "globe",
-		"quit":       "power",
+		"open":         "clipboard",
+		"monitor":      "pause",
+		"guard":        "shield",
+		"retention":    "clock",
+		"appearance":   "circle.lefthalf.filled",
+		"light":        "sun.max",
+		"dark":         "moon",
+		"language":     "globe",
+		"phone-region": "phone",
+		"quit":         "power",
 	}
 	if !s.monitoring {
 		symbols["monitor"] = "play"
