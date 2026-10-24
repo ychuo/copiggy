@@ -1,6 +1,7 @@
 package nativeui
 
 import (
+	"context"
 	"image"
 	"reflect"
 	"strings"
@@ -136,6 +137,67 @@ func TestLinkPreviewLoadingSurfaceRetainsRoundedCorners(t *testing.T) {
 		}
 		if pixels.RGBAAt(360, 54).A < 250 {
 			t.Fatal("link loading surface has no legible paper background")
+		}
+	}
+}
+
+func TestLinkQRUsesCompactChromeAndReturnsToRetainedPage(t *testing.T) {
+	for _, language := range []string{"en", "zh-Hans", "zh-Hant", "ja"} {
+		for _, dark := range []bool{false, true} {
+			s, item := semanticPreviewFixture(t, "example.com/original?q=one#saved")
+			s.language, s.viewState.Dark = language, dark
+			if err := s.store.SetAllowedApps(context.Background(), item.ID, []string{"editor.app"}); err != nil {
+				t.Fatal(err)
+			}
+			s.filter()
+			writer := &nativeVariantWriter{}
+			nativeVariantCopyService(s, writer)
+			page := &nativeLinkPreviewState{itemID: item.ID, url: "https://" + item.Text, current: "https://reading.example/next", committed: true, canBack: true}
+			s.linkPreview = page
+			width, height := s.nativeCurrentPreviewSize(item)
+			tt := ui.NewTester(s.nativePopoverView, width, height)
+			if err := tt.Click(s.tr("Show QR code")); err != nil {
+				t.Fatal(err)
+			}
+			width, height = s.nativeCurrentPreviewSize(item)
+			if width != 520 || height != 500 {
+				t.Fatalf("QR did not use compact preview dimensions: %dx%d", width, height)
+			}
+			tt.SetSize(width, height)
+			var previous ui.Rect
+			for i, label := range []string{"Show link", "Show QR code", "Open in browser", "Pin", "Delete item · ⌘⌫", "Close preview"} {
+				r, ok := tt.Find(s.tr(label))
+				if !ok || r.X < 22 || r.X+r.W > 498 || r.Y < 12 || r.Y+r.H > 42 || i > 0 && r.X < previous.X+previous.W {
+					t.Fatalf("compact QR toolbar overlaps in %s dark=%t: %s %+v", language, dark, label, r)
+				}
+				previous = r
+			}
+			for _, label := range []string{"Back", "Reload page", "Website icon", "reading.example"} {
+				if _, found := tt.Find(s.tr(label)); found {
+					t.Fatalf("QR kept redundant page chrome: %s", label)
+				}
+			}
+			original, ok := tt.Find(item.Text)
+			copy, hasCopy := tt.Find(s.tr("Copy"))
+			if !ok || !hasCopy || original.Y < copy.Y || original.Y+original.H > copy.Y+copy.H || original.X < copy.X+copy.W || original.X+original.W > 498 {
+				t.Fatalf("QR footer lost the exact original URL: source=%+v copy=%+v", original, copy)
+			}
+			qr, hasQR := tt.Find(s.tr("QR code"))
+			caption, hasCaption := tt.Find(s.tr("Scan with your phone"))
+			if !hasQR || !hasCaption || qr.W != qr.H || qr.Y+qr.H > caption.Y || caption.Y+caption.H > copy.Y-nativePreviewSectionGap {
+				t.Fatalf("QR or caption overlaps fixed protection footer: qr=%+v caption=%+v copy=%+v", qr, caption, copy)
+			}
+			if err := tt.Click(s.tr("Show link")); err != nil {
+				t.Fatal(err)
+			}
+			width, height = s.nativeCurrentPreviewSize(item)
+			if width != 720 || height != 500 {
+				t.Fatalf("page did not regain its reading width: %dx%d", width, height)
+			}
+			tt.SetSize(width, height)
+			if !tt.HasText("reading.example") || s.linkPreview != page || page.action != "" || writer.calls != 0 {
+				t.Fatal("QR round trip lost the current page, requested reload, or wrote the clipboard")
+			}
 		}
 	}
 }

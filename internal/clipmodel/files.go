@@ -45,6 +45,7 @@ func parseFileReference(raw string) (FileReference, bool) {
 // A mixed URI list remains a URI list; no subset silently becomes a file copy.
 func FilesFromRepresentations(data Representations) ([]FileReference, error) {
 	var files []FileReference
+	mixedURIItems := false
 	for _, item := range data {
 		var encoded []byte
 		declared, single, found := false, false, false
@@ -84,6 +85,7 @@ func FilesFromRepresentations(data Representations) ([]FileReference, error) {
 			itemFiles = append(itemFiles, file)
 		}
 		if mixed {
+			mixedURIItems = true
 			continue
 		}
 		if len(itemFiles) == 0 && declared {
@@ -93,6 +95,13 @@ func FilesFromRepresentations(data Representations) ([]FileReference, error) {
 		if len(files) > MaxFileReferences {
 			return nil, ContentError("Unsupported clipboard content")
 		}
+	}
+	// macOS may split one URI selection across several pasteboard items. A
+	// non-file URI in any item makes the complete selection mixed; converting
+	// only the file items would silently discard the other saved destinations.
+	// Keep scanning above so malformed declared file payloads still fail.
+	if mixedURIItems {
+		return nil, nil
 	}
 	return files, nil
 }

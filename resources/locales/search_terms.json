@@ -11,11 +11,23 @@
     "zh-Hant": "文字 程式碼",
     "ja": "テキスト コード"
   },
+  "markdown": {
+    "en": "markdown md text",
+    "zh-Hans": "文本 文档 标记",
+    "zh-Hant": "文字 文件 標記",
+    "ja": "テキスト 文書 マークダウン"
+  },
   "link": {
     "en": "link url",
     "zh-Hans": "链接 网址",
     "zh-Hant": "連結 網址",
     "ja": "リンク アドレス"
+  },
+  "app-link": {
+    "en": "app-link app link scheme deep link url",
+    "zh-Hans": "应用链接 应用 协议 深度链接",
+    "zh-Hant": "應用連結 應用 協定 深層連結",
+    "ja": "アプリリンク アプリ スキーム ディープリンク"
   },
   "image": {
     "en": "image png",

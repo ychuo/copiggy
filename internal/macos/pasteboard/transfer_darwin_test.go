@@ -15,6 +15,10 @@ type memoryTransfer struct {
 	revisions                   []int64
 	writeErr, flushErr, readErr error
 	writes, flushes             int
+	aliases                     []uriListAlias
+	aliasRevision               int64
+	aliasErr                    error
+	aliasHook                   func()
 }
 
 func (m *memoryTransfer) Write(data transfer.Data) error {
@@ -23,6 +27,13 @@ func (m *memoryTransfer) Write(data transfer.Data) error {
 	return m.writeErr
 }
 func (m *memoryTransfer) Flush() error { m.flushes++; return m.flushErr }
+func (m *memoryTransfer) UpdateURLAliases(aliases []uriListAlias, revision int64) error {
+	m.aliases, m.aliasRevision = aliases, revision
+	if m.aliasHook != nil {
+		m.aliasHook()
+	}
+	return m.aliasErr
+}
 func (m *memoryTransfer) ReadFormat(format transfer.Format) ([]byte, error) {
 	if m.readErr != nil {
 		return nil, m.readErr

@@ -17,6 +17,10 @@ func nativeContentColors(kind clipmodel.ContentType, fallback nativeColors) nati
 	switch kind {
 	case clipmodel.TypeText:
 		return nativeNoteColors()
+	case clipmodel.TypeMarkdown:
+		return nativeMarkdownColors()
+	case clipmodel.TypeAppLink:
+		return nativeAppLinkColors()
 	case clipmodel.TypeJSON:
 		return nativeJSONColors()
 	case clipmodel.TypeLink:
@@ -59,6 +63,10 @@ func nativeTypeIcon(kind clipmodel.ContentType) string {
 	switch kind {
 	case clipmodel.TypeJSON:
 		return "BracketsCurly"
+	case clipmodel.TypeMarkdown:
+		return "Markdown"
+	case clipmodel.TypeAppLink:
+		return "ArrowSquareOut"
 	case clipmodel.TypeImage:
 		return "Image"
 	case clipmodel.TypeLink:
@@ -88,6 +96,10 @@ func nativeTypeIcon(kind clipmodel.ContentType) string {
 
 func (s *application) nativeTypeLabel(kind clipmodel.ContentType) string {
 	switch kind {
+	case clipmodel.TypeMarkdown:
+		return s.tr("Markdown")
+	case clipmodel.TypeAppLink:
+		return s.tr("App scheme")
 	case clipmodel.TypeEmail:
 		return s.tr("Email")
 	case clipmodel.TypePhone:
@@ -142,6 +154,9 @@ type nativeCardAssets struct {
 func (s *application) nativeCardContentWithAssets(c *ui.Context, card ui.Element, item clipmodel.Item, value clipmodel.Analysis, fg, meta ui.Color, p nativeColors, assets nativeCardAssets) {
 	state := s.nativeState()
 	bitmap, linkCover, linkTitle := assets.bitmap, assets.linkCover, assets.linkTitle
+	if item.Type != clipmodel.TypeLink {
+		linkCover, linkTitle, assets.linkIcon = nil, "", nil
+	}
 	// Selection belongs to the tray; light content surfaces retain their own
 	// contrasting ink and controls when the outer glass uses dark mode.
 	p = nativeContentColors(item.Type, p)
@@ -176,7 +191,11 @@ func (s *application) nativeCardContentWithAssets(c *ui.Context, card ui.Element
 			painter.Image(linkCover, ui.Rect{X: bounds.X, Y: bounds.Y, W: bounds.W, H: nativeLinkCoverHeight}, ui.Cover)
 		}
 	}).Children(func() {
-		ui.Column(c).Fill().Padding(nativeCardPadding).Gap(nativeCardContentGap).TextColor(fg).Children(func() {
+		bottomInset := float32(nativeCardPadding)
+		if item.Type == clipmodel.TypeAppLink {
+			bottomInset = nativeAppLinkFooterInset()
+		}
+		ui.Column(c).Fill().Padding(nativeCardPadding, nativeCardPadding, bottomInset).Gap(nativeCardContentGap).TextColor(fg).Children(func() {
 			ui.Row(c).Height(nativeCardHeaderHeight).Gap(nativeInlineGap).AlignItems(ui.Center).Children(func() {
 				header := ui.Row(c).Gap(5).Radius(5).AlignItems(ui.Center)
 				if metadataGlass != nil {
@@ -247,6 +266,10 @@ func (s *application) nativeContentCardBody(c *ui.Context, item clipmodel.Item, 
 		}
 	case clipmodel.TypeJSON:
 		nativeJSONCard(c, item)
+	case clipmodel.TypeMarkdown:
+		nativeMarkdownCard(c, item, value.Markdown)
+	case clipmodel.TypeAppLink:
+		nativeAppLinkCardBody(c, value.Link, p)
 	case clipmodel.TypeLink:
 		s.nativeLinkCardBodyWithIcon(c, item, linkTitle, hasCover, linkIcon)
 	case clipmodel.TypeEmail:
@@ -284,6 +307,10 @@ func (s *application) nativeContentCardFooter(item clipmodel.Item, value clipmod
 	switch item.Type {
 	case clipmodel.TypeJSON:
 		return s.nativeJSONSummary(item.Text)
+	case clipmodel.TypeMarkdown:
+		return s.tr("Markdown")
+	case clipmodel.TypeAppLink:
+		return s.tr("App scheme")
 	case clipmodel.TypeImage:
 		if item.Image != nil {
 			return fmt.Sprintf("%d × %d", item.Image.Width, item.Image.Height)
@@ -393,6 +420,10 @@ func nativeCardArtwork(p *ui.Painter, r ui.Rect, kind clipmodel.ContentType, val
 	switch kind {
 	case clipmodel.TypeText:
 		nativeNoteArtwork(p, r)
+	case clipmodel.TypeMarkdown:
+		nativeMarkdownArtwork(p, r)
+	case clipmodel.TypeAppLink:
+		nativeAppLinkArtwork(p, r)
 	case clipmodel.TypeJSON:
 		nativeJSONArtwork(p, r)
 	case clipmodel.TypeLink:

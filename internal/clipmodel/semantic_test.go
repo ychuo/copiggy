@@ -52,8 +52,10 @@ func TestSemanticRecognitionUsesWholeUnambiguousValues(t *testing.T) {
 func TestAmbiguousAndMalformedValuesStayText(t *testing.T) {
 	for _, value := range []string{
 		"123456", "1234", "01234567", "123", "0xffeeaa", "red", "Hello hello@example.com",
-		"Name <hello@example.com>", "hello@localhost", "hello@example..com", "hello@-example.com", "hello@example.com;",
+		"Name <hello@example.com> then mail", "hello@localhost", "hello@example..com", "hello@-example.com", "hello@example.com;",
 		"1, 2", "90.01, 180.0", "0.0, -180.01", "NaN, 20.0", "31.2, 121.4 then turn left",
+		"-180.01, 0.0", "180.01, 0.0", "-122.168861, 90.01", "-122.168861, -90.01",
+		"-122, 37.428230", "-122.168861, 37", "-122.168861, 37.428230, 0.0",
 		"03/04/2026", "2026-02-30", "2026-13-22", "2026-10-22T25:00:00Z", "2026-10-22 then lunch", "2026-10-22T15:30:00+24:00", "2026-10-22T15:30:00+08:60",
 		"123456789", "9999999999", "9999999999999", "-1792645800", "1792645800.0",
 		"#ggg", "#abcdefg", "rgb(256, 0, 0)", "rgba(0, 0, 0, 2)", "hsl(0, 120%, 40%)", "hsl(NaN, 50%, 50%)", "rgb(0 0)",
@@ -65,6 +67,36 @@ func TestAmbiguousAndMalformedValuesStayText(t *testing.T) {
 		if got := Analyze(value).Type; got != TypeText {
 			t.Errorf("%q: got %q, want ordinary text", value, got)
 		}
+	}
+}
+
+func TestCoordinatesRecognizeOrderFromValidRanges(t *testing.T) {
+	for _, tc := range []struct {
+		input    string
+		lat, lon float64
+	}{
+		{"-122.168861, 37.428230", 37.428230, -122.168861},
+		{"37.428230, -122.168861", 37.428230, -122.168861},
+		{"  +121.4737,\t31.2304 \n", 31.2304, 121.4737},
+		{"151.2093, -33.8688", -33.8688, 151.2093},
+		{"+180.0, -90.0", -90, 180},
+		{"-180.0, +90.0", 90, -180},
+		{"-90.0, +180.0", -90, 180},
+		{"45.0, -80.0", 45, -80},
+		{"90.0, -90.0", 90, -90},
+	} {
+		t.Run(tc.input, func(t *testing.T) {
+			got := Analyze(tc.input)
+			if got.Type != TypeCoordinates || got.Coordinates == nil ||
+				got.Coordinates.Latitude != tc.lat || got.Coordinates.Longitude != tc.lon {
+				t.Fatalf("coordinates = %+v, want latitude %g, longitude %g", got.Coordinates, tc.lat, tc.lon)
+			}
+			store := NewStore(1)
+			item, ok := store.Capture(tc.input, "Fixture Editor", false)
+			if !ok || item.Type != TypeCoordinates || item.Text != tc.input {
+				t.Fatal("coordinate recognition failed capture or rewrote the original text")
+			}
+		})
 	}
 }
 

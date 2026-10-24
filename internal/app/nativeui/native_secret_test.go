@@ -272,6 +272,7 @@ func TestCredentialPartialShowsOnlySixCharacterEnds(t *testing.T) {
 	encoded := base64.StdEncoding.EncodeToString(block.Bytes)
 	for _, tc := range []struct{ raw, payload string }{
 		{"ghp_abcdefghijklmnopqrstuvwx0123456789", "ghp_abcdefghijklmnopqrstuvwx0123456789"},
+		{"Authorization: Bearer ghp_abcdefghijklmnopqrstuvwx0123456789", "ghp_abcdefghijklmnopqrstuvwx0123456789"},
 		{key, encoded},
 	} {
 		value := clipmodel.Analyze(tc.raw)

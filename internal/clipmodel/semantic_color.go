@@ -3,9 +3,12 @@ package clipmodel
 import (
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+var colorDecimalPattern = regexp.MustCompile(`^[+-]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$`)
 
 // ColorValue keeps eight-bit sRGB channels and explicit normalized display
 // alternatives. Parsing never changes the original clipboard representation.
@@ -47,7 +50,12 @@ func analyzeColor(value string) *ColorValue {
 			return nil
 		}
 		function, body = strings.TrimSpace(function), strings.TrimSuffix(body, ")")
-		if function != "rgb" && function != "rgba" && function != "hsl" && function != "hsla" {
+		if function != "rgb" && function != "rgba" && function != "hsl" && function != "hsla" && function != "hwb" {
+			return nil
+		}
+		// HWB has only the modern whitespace syntax; commas are not a legacy
+		// alternative as they are for RGB and HSL.
+		if function == "hwb" && strings.Contains(body, ",") {
 			return nil
 		}
 		parts, ok := colorComponents(body)
@@ -75,9 +83,8 @@ func analyzeColor(value string) *ColorValue {
 				return nil
 			}
 		} else {
-			hueText := strings.TrimSuffix(parts[0], "deg")
-			h, err := strconv.ParseFloat(hueText, 64)
-			if err != nil || math.IsNaN(h) || math.IsInf(h, 0) || !strings.HasSuffix(parts[1], "%") || !strings.HasSuffix(parts[2], "%") {
+			h, okH := colorHue(parts[0])
+			if !okH || !strings.HasSuffix(parts[1], "%") || !strings.HasSuffix(parts[2], "%") {
 				return nil
 			}
 			s, okS := colorNumber(parts[1], 1)
@@ -85,10 +92,35 @@ func analyzeColor(value string) *ColorValue {
 			if !okS || !okL {
 				return nil
 			}
-			r, g, b = hslRGB(math.Mod(math.Mod(h, 360)+360, 360), s, l)
+			if function == "hwb" {
+				r, g, b = hwbRGB(h, s, l)
+			} else {
+				r, g, b = hslRGB(h, s, l)
+			}
 		}
 	}
 	return describeColor(uint8(math.Round(r)), uint8(math.Round(g)), uint8(math.Round(b)), uint8(math.Round(a*255)))
+}
+
+func colorHue(value string) (float64, bool) {
+	period := 360.0
+	for _, unit := range []struct {
+		suffix string
+		period float64
+	}{{"deg", 360}, {"grad", 400}, {"rad", 2 * math.Pi}, {"turn", 1}} {
+		if strings.HasSuffix(value, unit.suffix) {
+			value = strings.TrimSuffix(value, unit.suffix)
+			period = unit.period
+			break
+		}
+	}
+	hue, ok := colorDecimalNumber(value)
+	if !ok {
+		return 0, false
+	}
+	// Reduce in the original unit before conversion to avoid overflow for
+	// otherwise finite angles. Negative angles wrap around the same color wheel.
+	return math.Mod(math.Mod(hue, period)+period, period) / period * 360, true
 }
 
 func colorComponents(body string) ([]string, bool) {
@@ -116,14 +148,36 @@ func colorComponents(body string) ([]string, bool) {
 
 func colorNumber(value string, maximum float64) (float64, bool) {
 	percent := strings.HasSuffix(value, "%")
-	parsed, err := strconv.ParseFloat(strings.TrimSuffix(value, "%"), 64)
-	if err != nil || math.IsNaN(parsed) || math.IsInf(parsed, 0) {
+	parsed, ok := colorDecimalNumber(strings.TrimSuffix(value, "%"))
+	if !ok {
 		return 0, false
 	}
 	if percent {
 		parsed = parsed / 100 * maximum
 	}
 	return parsed, parsed >= 0 && parsed <= maximum
+}
+
+func colorDecimalNumber(value string) (float64, bool) {
+	// ParseFloat also accepts Go hexadecimal literals and digit separators,
+	// which are not CSS numbers. Keep recognition limited to decimal syntax.
+	if !colorDecimalPattern.MatchString(value) {
+		return 0, false
+	}
+	parsed, err := strconv.ParseFloat(value, 64)
+	return parsed, err == nil && !math.IsNaN(parsed) && !math.IsInf(parsed, 0)
+}
+
+func hwbRGB(h, white, black float64) (r, g, b float64) {
+	// CSS Color 4 normalizes excess white and black proportionally to gray.
+	// https://www.w3.org/TR/css-color-4/#hwb-to-rgb
+	if white+black >= 1 {
+		gray := white / (white + black) * 255
+		return gray, gray, gray
+	}
+	r, g, b = hslRGB(h, 1, 0.5)
+	chroma, base := 1-white-black, white*255
+	return r*chroma + base, g*chroma + base, b*chroma + base
 }
 
 func hslRGB(h, s, l float64) (r, g, b float64) {

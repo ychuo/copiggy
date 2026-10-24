@@ -2,7 +2,6 @@ package nativeui
 
 import (
 	"strconv"
-	"strings"
 	"time"
 
 	"copiggy/internal/clipmodel"
@@ -40,9 +39,13 @@ func (s *application) nativeTimestampCard(c *ui.Context, item clipmodel.Item, st
 	if stamp.Unit == "ms" {
 		size = 17
 	}
+	number := stamp.Seconds
+	if stamp.Unit == "ms" {
+		number = stamp.Milliseconds
+	}
 	local := stamp.Time.In(time.Local)
 	ui.Box(c).Fill().Children(func() {
-		ui.Text(c, strings.TrimSpace(item.Text)).Absolute().Top(18).Left(0).Right(0).Font(nativeCodeFont).FontSize(size).FontWeight(nativeWeightTitle).FontFeatures("tnum").LineHeight(1.15).SingleLine().TextAlign(ui.Center)
+		ui.Text(c, strconv.FormatInt(number, 10)).Absolute().Top(18).Left(0).Right(0).Font(nativeCodeFont).FontSize(size).FontWeight(nativeWeightTitle).FontFeatures("tnum").LineHeight(1.15).SingleLine().TextAlign(ui.Center)
 		ui.Text(c, local.Format(s.tr("Jan 2"))+" · "+local.Format("15:04")).Absolute().Top(76).Left(0).Right(0).FontSize(nativeTextControl).FontWeight(nativeWeightBody).FontFeatures("tnum").TextColor(ink.paperMeta).SingleLine().TextAlign(ui.Center)
 	})
 }

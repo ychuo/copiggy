@@ -1,7 +1,9 @@
 package nativeui
 
 import (
+	"reflect"
 	"testing"
+	"time"
 
 	"copiggy/internal/clipmodel"
 	"github.com/egoist/mygo/ui"
@@ -137,6 +139,137 @@ func TestNativeLinkCleanupInvalidatesCallbacksBeforeUnsubscribe(t *testing.T) {
 	s.destroyNativeLinkPreview()
 	if called != 1 || s.linkPreview != nil {
 		t.Fatal("cleanup is not idempotent")
+	}
+}
+
+func TestNativeWebPageSessionSurvivesQRRoundTripWithoutRecreation(t *testing.T) {
+	s, item := semanticPreviewFixture(t, "https://example.com/saved?q=one#part")
+	writer := &nativeVariantWriter{}
+	nativeVariantCopyService(s, writer)
+	const host = uintptr(37)
+	state, create := s.reconcileNativeLinkPreview(item, host)
+	if state == nil || !create {
+		t.Fatal("first page presentation did not request its initial view")
+	}
+	// Model a committed page after an in-page navigation. Native creation is
+	// deliberately omitted; the same session owns the real WKWebView in use.
+	state.current = "https://example.com/article#reading"
+	state.target, state.committed, state.loading, state.canBack = state.current, true, false, true
+	unsubscribed := 0
+	state.off = []func(){func() { unsubscribed++ }}
+	before := *state
+	before.off = nil
+	tt := ui.NewTester(s.nativePopoverView, 720, 500)
+	for range 2 {
+		if err := tt.Click("Show QR code"); err != nil {
+			t.Fatal(err)
+		}
+		if retained, create := s.reconcileNativeLinkPreview(item, host); retained != state || create {
+			t.Fatal("QR replaced the current page session")
+		}
+		if !tt.HasText("Scan with your phone") || s.semanticState(item).QRTarget != item.Text {
+			t.Fatal("QR lost the saved destination or native presentation")
+		}
+		if err := tt.Click("Show link"); err != nil {
+			t.Fatal(err)
+		}
+		if retained, create := s.reconcileNativeLinkPreview(item, host); retained != state || create {
+			t.Fatal("returning to the page requested another view/load")
+		}
+		after := *state
+		after.off = nil
+		if !reflect.DeepEqual(before, after) || state.action != "" || unsubscribed != 0 || writer.calls != 0 {
+			t.Fatal("display toggle mutated page navigation, queued a reload, removed policies or wrote the clipboard")
+		}
+	}
+	if err := tt.Click("Close preview"); err != nil {
+		t.Fatal(err)
+	}
+	if s.linkPreview != nil || unsubscribed != 1 {
+		t.Fatal("closing retained the hidden/reused page session")
+	}
+}
+
+func TestNativeLinkQRDoesNotCreateAPageAndInvalidatesForeignSessions(t *testing.T) {
+	for _, change := range []string{"no page yet", "different record", "changed saved URL", "different host", "hidden host", "closed preview", "hiding panel", "quitting", "App link", "unsafe destination"} {
+		t.Run(change, func(t *testing.T) {
+			s, item := semanticPreviewFixture(t, "https://example.com/saved")
+			host := uintptr(37)
+			state, create := s.reconcileNativeLinkPreview(item, host)
+			if state == nil || !create {
+				t.Fatal("missing initial session")
+			}
+			unsubscribed := 0
+			state.off = []func(){func() { unsubscribed++ }}
+			s.semanticState(item).LinkQR = true
+			switch change {
+			case "no page yet":
+				s.linkPreview = nil
+			case "different record":
+				state.itemID = "old-record"
+			case "changed saved URL":
+				state.url = "https://example.com/old"
+			case "different host":
+				host++
+			case "hidden host":
+				host = 0
+			case "closed preview":
+				s.preview = false
+			case "hiding panel":
+				s.hiding = true
+			case "quitting":
+				s.quitting = true
+			case "App link":
+				item.Type, item.Text = clipmodel.TypeAppLink, "aweme://video/123"
+			case "unsafe destination":
+				item.Text = "https://user:password@example.com/saved"
+			}
+			if got, create := s.reconcileNativeLinkPreview(item, host); got != nil || create || s.linkPreview != nil {
+				t.Fatal("QR kept an unrelated page or created a hidden WebView")
+			}
+			wantUnsubscribed := 1
+			if change == "no page yet" {
+				wantUnsubscribed = 0
+			}
+			if unsubscribed != wantUnsubscribed {
+				t.Fatalf("session cleanup calls = %d, want %d", unsubscribed, wantUnsubscribed)
+			}
+		})
+	}
+}
+
+func TestNativeHiddenPageWatchdogStopsOnlyExpiredLoadsAndKeepsSession(t *testing.T) {
+	for _, committed := range []bool{false, true} {
+		s, item := semanticPreviewFixture(t, "https://example.com/saved")
+		const host = uintptr(37)
+		state, _ := s.reconcileNativeLinkPreview(item, host)
+		state.committed = committed
+		state.current, state.target, state.canBack = "https://example.com/reading#position", "https://example.com/reading#position", true
+		s.semanticState(item).LinkQR = true
+		stops := 0
+		stop := func() { stops++ }
+		if state.stopTimedOutLoad(state.started.Add(25*time.Second), stop) || stops != 0 || !state.loading {
+			t.Fatal("watchdog stopped a load before its deadline")
+		}
+		if !state.stopTimedOutLoad(state.started.Add(26*time.Second), stop) || stops != 1 || state.loading {
+			t.Fatal("hidden page did not stop its expired load")
+		}
+		if state.stopTimedOutLoad(state.started.Add(time.Minute), stop) || stops != 1 {
+			t.Fatal("watchdog repeatedly stopped a finished load")
+		}
+		if committed && state.failure != "" || !committed && state.failure != "Page timed out" {
+			t.Fatal("timeout hid committed content or lost an uncommitted failure")
+		}
+		if state.current != "https://example.com/reading#position" || state.target != state.current || !state.canBack || state.action != "" {
+			t.Fatal("watchdog changed navigation or queued a reload")
+		}
+		if retained, create := s.reconcileNativeLinkPreview(item, host); retained != state || create {
+			t.Fatal("hidden timeout replaced the page session")
+		}
+		s.semanticState(item).LinkQR = false
+		if retained, create := s.reconcileNativeLinkPreview(item, host); retained != state || create {
+			t.Fatal("returning after timeout recreated or reloaded the page")
+		}
 	}
 }
 

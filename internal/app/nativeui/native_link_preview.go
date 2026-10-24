@@ -17,6 +17,7 @@ type nativeLinkPreviewState struct {
 	view                         *mygo.WebView
 	itemID, url, current, target string
 	host                         uintptr
+	pageWidth                    int
 	loading, committed           bool
 	canBack, dark                bool
 	failure                      string
@@ -25,28 +26,65 @@ type nativeLinkPreviewState struct {
 	off                          []func()
 }
 
+// A page belongs to one saved record and one visible popover host. QR mode
+// reuses that session but never creates one: omitting ui.WebView from the frame
+// makes MyGo hide its native view without destroying the document or history.
+// Keeping this reconciliation independent of native creation also lets tests
+// exercise host changes and QR transitions without opening WebKit.
+func (s *application) reconcileNativeLinkPreview(item clipmodel.Item, host uintptr) (*nativeLinkPreviewState, bool) {
+	link := clipmodel.ParseLink(item.Text)
+	if !s.preview || s.quitting || s.hiding || item.Type != clipmodel.TypeLink || link == nil || link.App || host == 0 {
+		s.destroyNativeLinkPreview()
+		return nil, false
+	}
+	raw, valid := nativeLinkURL(link.URL)
+	if !valid {
+		s.destroyNativeLinkPreview()
+		return nil, false
+	}
+	state := s.linkPreview
+	if state != nil && (state.itemID != item.ID || state.url != raw || state.host != host || (state.view != nil && state.view.IsDestroyed())) {
+		s.destroyNativeLinkPreview()
+		state = nil
+	}
+	if s.semanticState(item).LinkQR {
+		return state, false
+	}
+	if state == nil {
+		state = &nativeLinkPreviewState{itemID: item.ID, url: raw, current: raw, target: raw, host: host, loading: true, started: time.Now(), dark: s.nativeState().Dark}
+		s.linkPreview = state
+		return state, true
+	}
+	return state, false
+}
+
 // No remote requests happen when capturing or selecting a link. This is called
 // only after the user opens its popover and AppKit has made its real NSWindow.
 func (s *application) syncNativeLinkPreview(item clipmodel.Item) {
-	if !s.preview || item.Type != clipmodel.TypeLink || s.popover == nil || !s.popover.IsVisible() {
-		s.destroyNativeLinkPreview()
+	var host uintptr
+	if s.popover != nil && s.popover.IsVisible() {
+		host = s.popover.NativeHandle()
+	}
+	state, create := s.reconcileNativeLinkPreview(item, host)
+	if state == nil {
 		return
 	}
-	host := s.popover.NativeHandle()
-	if host == 0 {
-		s.destroyNativeLinkPreview()
+	if s.semanticState(item).LinkQR {
+		// A hidden page keeps its existing load and policies, including the
+		// bounded loading watchdog. QR itself never creates or navigates it.
+		if state.view != nil && state.stopTimedOutLoad(time.Now(), state.view.Page().Stop) {
+			s.publish()
+		}
 		return
 	}
-	raw, valid := nativeLinkURL(item.Text)
-	if !valid {
-		s.destroyNativeLinkPreview()
-		return
+	// Popover synchronization resizes the host before this point. Retain the
+	// last page width while QR is shown so its smaller surface cannot briefly
+	// resize the hidden WKWebView when the user switches back to Page.
+	if state.pageWidth != s.popoverWidth {
+		state.pageWidth = s.popoverWidth
+		s.popover.Invalidate()
 	}
-	state := s.linkPreview
-	if state == nil || state.itemID != item.ID || state.url != raw || state.host != host || (state.view != nil && state.view.IsDestroyed()) {
-		s.destroyNativeLinkPreview()
-		state = &nativeLinkPreviewState{itemID: item.ID, url: raw, current: raw, target: raw, host: host, loading: true, started: time.Now(), dark: s.nativeState().Dark}
-		s.linkPreview = state
+	if create {
 		// Leave URL empty until all policies and callbacks are installed.
 		view, err := s.popover.NewWebView(mygo.WebViewOptions{
 			Page:            mygo.PageOptions{DevTools: mygo.DevToolsDisabled},
@@ -123,7 +161,7 @@ func (s *application) syncNativeLinkPreview(item clipmodel.Item) {
 				}
 			}),
 		)
-		if err := page.LoadURL(raw); err != nil {
+		if err := page.LoadURL(state.url); err != nil {
 			state.loading, state.failure = false, "Page unavailable"
 		}
 		s.publish()
@@ -174,16 +212,23 @@ func (s *application) syncNativeLinkPreview(item clipmodel.Item) {
 		state.canBack = back
 		s.popover.Invalidate()
 	}
-	if state.loading && time.Since(state.started) > 25*time.Second {
-		page.Stop()
-		state.loading = false
-		// A visible document may have a slow analytics resource. Keep its
-		// readable content instead of replacing it with an error screen.
-		if !state.committed {
-			state.failure = "Page timed out"
-		}
+	if state.stopTimedOutLoad(time.Now(), page.Stop) {
 		s.publish()
 	}
+}
+
+func (state *nativeLinkPreviewState) stopTimedOutLoad(now time.Time, stop func()) bool {
+	if !state.loading || now.Sub(state.started) <= 25*time.Second {
+		return false
+	}
+	stop()
+	state.loading = false
+	// A committed document may have a slow resource. Preserve its content and
+	// navigation whether it is visible or temporarily hidden behind QR.
+	if !state.committed {
+		state.failure = "Page timed out"
+	}
+	return true
 }
 
 func (s *application) destroyNativeLinkPreview() {
@@ -245,8 +290,29 @@ func (state *nativeLinkPreviewState) displayedURL() string {
 }
 
 func (s *application) nativeLinkActions(c *ui.Context, item clipmodel.Item, p nativeColors) {
+	if item.Type == clipmodel.TypeAppLink {
+		s.nativeAppLinkActions(c, item, p)
+		return
+	}
 	state := s.nativeLinkState(item)
-	if state != nil && state.canBack {
+	semantic := s.semanticState(item)
+	link := clipmodel.ParseLink(item.Text)
+	nativeSegmentGroup(c, p).Children(func() {
+		for _, option := range []struct {
+			title, label string
+			qr           bool
+		}{{"Page", "Show link", false}, {"QR", "Show QR code", true}} {
+			if s.nativeFormatSegment(c, s.tr(option.title), semantic.LinkQR == option.qr, p).
+				Label(s.tr(option.label)).Clicked() && semantic.LinkQR != option.qr {
+				s.toggleNativeLinkQR(item)
+			}
+		}
+	})
+	if semantic.LinkQR {
+		return // QR identifies the original destination once, in the copy footer.
+	}
+	web := link != nil && !link.App && !semantic.LinkQR
+	if web && state != nil && state.canBack {
 		if s.nativePreviewButton(c, "ArrowLeft", s.tr("Back"), p).Clicked() {
 			state.action = "back"
 		}
@@ -255,7 +321,7 @@ func (s *application) nativeLinkActions(c *ui.Context, item clipmodel.Item, p na
 	if state != nil && state.loading {
 		icon, label, action = "X", "Stop loading", "stop"
 	}
-	if s.nativePreviewButton(c, icon, s.tr(label), p).Clicked() && state != nil {
+	if web && s.nativePreviewButton(c, icon, s.tr(label), p).Clicked() && state != nil {
 		state.action = action
 	}
 	ui.Row(c).Grow(1).MinWidth(0).Gap(nativeToolbarGap).AlignItems(ui.Center).Children(func() {
@@ -265,41 +331,99 @@ func (s *application) nativeLinkActions(c *ui.Context, item clipmodel.Item, p na
 		if s.nativeLinkShowsOriginalOrigin(item) {
 			bitmap = s.nativeState().WebsiteIcons[item.ID]
 		}
-		s.nativeLinkSiteIcon(c, bitmap, nativeToolbarIconSize, p)
+		if link != nil && link.App {
+			nativeGlyph(c, "LinkSimple", nativeToolbarIconSize).TextColor(p.icon)
+		} else {
+			s.nativeLinkSiteIcon(c, bitmap, nativeToolbarIconSize, p)
+		}
 		nativeContentText(c, s.nativeLinkLocation(item)).FontSize(nativeTextControl).FontWeight(nativeWeightBody).TextColor(p.muted).Grow(1).MinWidth(0).SingleLine()
 	})
 }
 
 func (s *application) nativeLinkOpenAction(c *ui.Context, item clipmodel.Item, p nativeColors) {
-	if s.nativePreviewButton(c, "ArrowSquareOut", s.tr("Open in browser"), p).Clicked() {
+	label := "Open in browser"
+	if link := clipmodel.ParseLink(item.Text); link != nil && link.App {
+		label = "Open in app"
+	}
+	if s.nativePreviewButton(c, "ArrowSquareOut", s.tr(label), p).Clicked() {
 		s.openNativeLink(item)
 	}
 }
 
 func (s *application) openNativeLink(item clipmodel.Item) {
-	raw := item.Text
-	if state := s.nativeLinkState(item); state != nil && state.current != "" {
-		raw = state.displayedURL()
+	target, app := s.nativeLinkOpenDestination(item.ID)
+	if target == "" {
+		return
 	}
-	if checked, ok := nativeLinkURL(raw); ok {
-		go func() {
-			if err := mygo.Shell.OpenExternal(checked); err != nil {
-				mygo.RunOnMain(func() { s.reportNativeStatus(s.tr("Could not open browser")) })
-			}
-		}()
+	failure := "Could not open browser"
+	if app {
+		failure = "No app could open this link"
 	}
+	s.perform(func() error { return mygo.Shell.OpenExternal(target) }, func(err error) {
+		if err != nil {
+			s.reportNativeStatus(s.tr(failure))
+		}
+	})
+}
+
+func (s *application) nativeLinkOpenDestination(id string) (target string, app bool) {
+	// Derive the destination again from history, never from a UI-supplied URL.
+	record, exists := s.store.Record(id)
+	if !exists || !nativeLinkItemType(record.Item.Type) {
+		return "", false
+	}
+	link := clipmodel.ParseLink(record.Item.Text)
+	if link == nil {
+		return "", false
+	}
+	target = link.URL
+	if !link.App {
+		original, valid := nativeLinkURL(link.URL)
+		if !valid {
+			return "", false
+		}
+		if state := s.nativeLinkState(record.Item); state != nil && state.url == original && state.current != "" && !s.semanticState(record.Item).LinkQR {
+			target = state.displayedURL()
+		}
+		var ok bool
+		if target, ok = nativeLinkURL(target); !ok {
+			return "", false
+		}
+	}
+	return target, link.App
 }
 
 func (s *application) nativeLinkContent(c *ui.Context, item clipmodel.Item, p nativeColors) {
+	link := clipmodel.ParseLink(item.Text)
+	semantic := s.semanticState(item)
+	if semantic.LinkQR {
+		s.nativeLinkQRContent(c, item, semantic.QRCode, p)
+		return
+	}
+	if link != nil && link.App {
+		s.nativeAppLinkContent(c, item, link, p)
+		return
+	}
 	state := s.nativeLinkState(item)
-	_, valid := nativeLinkURL(item.Text)
+	valid := false
+	if link != nil {
+		_, valid = nativeLinkURL(link.URL)
+	}
 	failure := ""
 	if !valid {
 		failure = "Web preview supports HTTP and HTTPS links"
 	} else if state != nil {
 		failure = state.failure
 	}
+	width, _ := c.Size()
+	// Page is wider than QR. Wait for the popover's next geometry sync before
+	// placing the retained WebView, avoiding a brief narrow-page reflow.
+	waitingForSize := state != nil && state.pageWidth > 0 && int(width) != state.pageWidth
 	ui.Column(c).Grow(1).MinHeight(0).FillWidth().Radius(nativePreviewPaperRadius).Clip().Children(func() {
+		if waitingForSize {
+			ui.Box(c).Fill().Background(nativeLinkColors().paper)
+			return
+		}
 		if state != nil && state.view != nil && failure == "" {
 			ui.WebView(c, state.view).Grow(1).MinHeight(0).Radius(nativePreviewPaperRadius).Label(s.tr("Web page"))
 		}
@@ -327,7 +451,14 @@ func (s *application) nativeLinkContent(c *ui.Context, item clipmodel.Item, p na
 }
 
 func (s *application) nativeLinkLocation(item clipmodel.Item) string {
-	raw := item.Text
+	link := clipmodel.ParseLink(item.Text)
+	if link == nil {
+		return ""
+	}
+	if link.App {
+		return link.Scheme + "://"
+	}
+	raw := link.URL
 	if state := s.nativeLinkState(item); state != nil && state.current != "" {
 		raw = state.displayedURL()
 	}
@@ -338,11 +469,15 @@ func (s *application) nativeLinkLocation(item clipmodel.Item) string {
 }
 
 func (s *application) nativeLinkShowsOriginalOrigin(item clipmodel.Item) bool {
-	original, err := url.Parse(strings.TrimSpace(item.Text))
+	link := clipmodel.ParseLink(item.Text)
+	if link == nil || link.App || link.Inferred {
+		return false
+	}
+	original, err := url.Parse(link.URL)
 	if err != nil || original.Hostname() == "" {
 		return false
 	}
-	raw := item.Text
+	raw := link.URL
 	if state := s.nativeLinkState(item); state != nil {
 		raw = state.displayedURL()
 	}

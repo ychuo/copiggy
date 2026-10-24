@@ -147,7 +147,11 @@ func (cache *Cache) Clear() {
 // Only the origin leaves the app. Never request the copied private path, query,
 // fragment, username or password, nor send cookies, referrers or auth headers.
 func linkIconOrigin(rawURL string) (string, error) {
-	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	link := clipmodel.ParseLink(rawURL)
+	if link == nil || link.Inferred || link.App {
+		return "", errors.New("unsupported icon origin")
+	}
+	parsed, err := url.Parse(link.URL)
 	if err != nil || !validIconURL(parsed) {
 		return "", errors.New("unsupported icon origin")
 	}

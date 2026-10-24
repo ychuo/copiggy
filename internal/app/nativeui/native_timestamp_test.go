@@ -115,16 +115,19 @@ func TestTimestampDisplayOptionsKeepPrecisionFocusAndSavedOriginal(t *testing.T)
 }
 
 func TestTimestampCounterStaysInsideCardAndPreview(t *testing.T) {
-	for _, raw := range []string{"1792645800", "1792645800123"} {
-		s, item := semanticPreviewFixture(t, raw)
+	for _, tc := range []struct{ raw, counter string }{
+		{"1792645800", "1792645800"}, {"1792645800123", "1792645800123"},
+		{"1792645800 s", "1792645800"}, {"1792645800123 ms", "1792645800123"},
+	} {
+		s, item := semanticPreviewFixture(t, tc.raw)
 		tt := ui.NewTester(s.nativeView, 1140, nativeTrayHeight)
 		card, found := tt.Find(s.nativeCardLabel(item))
-		value, valueFound := tt.Find(raw)
+		value, valueFound := tt.Find(tc.counter)
 		if !found || !valueFound || value.X < card.X+nativeCardPadding || value.X+value.W > card.X+card.W-nativeCardPadding || value.Y < card.Y+60 || value.Y+value.H > card.Y+100 {
 			t.Fatalf("counter overlaps card chrome/ticks: counter=%+v card=%+v", value, card)
 		}
 		preview := ui.NewTester(s.nativePopoverView, 520, nativeTimestampPreviewHeight)
-		value, valueFound = preview.Find(raw)
+		value, valueFound = preview.Find(tc.counter)
 		if !valueFound || value.X != 30 || value.X+value.W > 490 || value.Y < 72 || value.Y+value.H > 200 {
 			t.Fatalf("counter escaped left-aligned preview reading surface: %+v", value)
 		}

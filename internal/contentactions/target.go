@@ -17,9 +17,10 @@ var (
 	ErrInvalidPath = errors.New("invalid local file path")
 )
 
-// Target contains one destination. URL is restricted to mailto, tel or Apple
-// Maps HTTPS. Path is for a reveal action, never shell execution. Calendar is an
-// iCalendar document for the host to open after an explicit user request.
+// Target contains one destination derived from recognized saved content. URLs
+// are for explicit system-open actions, never automatic requests. Path is for a
+// reveal action, never shell execution. Calendar is an iCalendar document for
+// the host to open after an explicit user request.
 type Target struct {
 	URL      string
 	Path     string
@@ -42,6 +43,11 @@ func OpenItemTarget(item clipmodel.Item) (Target, error) {
 
 func targetForAnalysis(value clipmodel.Analysis) (Target, error) {
 	switch value.Type {
+	case clipmodel.TypeLink, clipmodel.TypeAppLink:
+		if value.Link == nil {
+			return Target{}, ErrUnsupported
+		}
+		return Target{URL: value.Link.URL}, nil
 	case clipmodel.TypeEmail:
 		// Escape the complete recipient as a path component so literal '?' or
 		// '#' in a valid email local part cannot introduce headers or fragments.

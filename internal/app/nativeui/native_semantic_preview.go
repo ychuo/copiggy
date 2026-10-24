@@ -16,9 +16,14 @@ import (
 // selected format; changing it alone never writes or edits a saved record.
 // Closing or moving away resets formats and clears revealed credentials.
 type nativeSemanticPreviewState struct {
+	LinkQR                               bool
+	LinkModeInitialized                  bool
+	QRCode                               *nativeLinkQRCode
+	QRTarget                             string
 	ItemID                               string
 	CopyFormat                           clipmodel.CopyFormat
 	Revealed, UTC, Milliseconds, Dialing bool
+	MarkdownSource                       bool
 	ColorFormat, MapZoom, ImageZoom      int
 	PhoneLocation                        *nativePhoneLocationState
 }

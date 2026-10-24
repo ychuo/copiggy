@@ -95,6 +95,12 @@ copiggy_phonenumbers=$(go list -m -f '{{.Dir}}' github.com/nyaruka/phonenumbers/
 copiggy_protobuf=$(go list -m -f '{{.Dir}}' google.golang.org/protobuf)
 cp "$copiggy_phonenumbers/LICENSE" "$copiggy_resources/licenses/Phonenumbers.txt"
 cp "$copiggy_protobuf/LICENSE" "$copiggy_resources/licenses/Protobuf.txt"
+copiggy_markdown=$(go list -m -f '{{.Dir}}' github.com/yuin/goldmark)
+copiggy_qrcode=$(go list -m -f '{{.Dir}}' github.com/skip2/go-qrcode)
+copiggy_net=$(go list -m -f '{{.Dir}}' golang.org/x/net)
+cp "$copiggy_markdown/LICENSE" "$copiggy_resources/licenses/Goldmark.txt"
+cp "$copiggy_qrcode/LICENSE" "$copiggy_resources/licenses/GoQRCode.txt"
+cp "$copiggy_net/LICENSE" "$copiggy_resources/licenses/GoNet.txt"
 cp resources/licenses/Libphonenumber.txt "$copiggy_resources/licenses/Libphonenumber.txt"
 rm -rf "$copiggy_resources/brand" "$copiggy_resources/icons" "$copiggy_resources/locales" "$copiggy_resources/fonts" "$copiggy_resources/flags"
 rm -f "$copiggy_resources/resources.go"

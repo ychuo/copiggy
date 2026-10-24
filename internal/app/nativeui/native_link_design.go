@@ -22,8 +22,11 @@ func nativeLinkArtwork(p *ui.Painter, r ui.Rect) {
 }
 
 func nativeLinkCardHost(item clipmodel.Item) string {
-	if link, err := url.Parse(strings.TrimSpace(item.Text)); err == nil && link.Hostname() != "" {
-		return link.Hostname()
+	if link := clipmodel.ParseLink(item.Text); link != nil {
+		if link.App {
+			return link.Scheme + "://"
+		}
+		return link.Host
 	}
 	return ""
 }
@@ -34,9 +37,19 @@ func nativeLinkCardTitle(item clipmodel.Item, title string) string {
 	if title = strings.TrimSpace(title); title != "" {
 		return title
 	}
-	link, err := url.Parse(strings.TrimSpace(item.Text))
+	value := clipmodel.ParseLink(item.Text)
+	if value == nil {
+		return strings.TrimSpace(item.Text)
+	}
+	if value.Title != "" {
+		return value.Title
+	}
+	link, err := url.Parse(value.URL)
 	if err != nil {
 		return strings.TrimSpace(item.Text)
+	}
+	if value.App {
+		return value.Scheme + "://" + link.Host + link.EscapedPath()
 	}
 	title = strings.Trim(link.EscapedPath(), "/")
 	if decoded, err := url.PathUnescape(title); err == nil {
@@ -60,6 +73,10 @@ func (s *application) nativeLinkSiteIcon(c *ui.Context, bitmap *ui.Bitmap, size 
 // inspect website contents; cover loading cannot move the common card footer.
 func (s *application) nativeLinkCardBodyWithIcon(c *ui.Context, item clipmodel.Item, title string, hasCover bool, icon *ui.Bitmap) {
 	p := nativeLinkColors()
+	if link := clipmodel.ParseLink(item.Text); link != nil && link.App {
+		nativeAppLinkCardBody(c, link, p)
+		return
+	}
 	title = nativeLinkCardTitle(item, title)
 	if hasCover {
 		// Shared body starts at y=50. The 106px cover leaves eight pixels before
@@ -89,9 +106,13 @@ func (s *application) nativeLinkPreview(c *ui.Context, item clipmodel.Item, p na
 				if s.nativeCopyButton(c, p).Clicked() {
 					s.chooseNative(false)
 				}
-				// Navigation changes the toolbar's location, but this control always
-				// copies the exact saved record, so its label keeps the original host.
-				nativeContentText(c, nativeLinkCardHost(item)).FontSize(nativeTextMeta).FontWeight(nativeWeightValue).Grow(1).MinWidth(0).SingleLine()
+				// QR has no duplicate location in its toolbar. Its copy footer
+				// shows the saved source, independent of retained page navigation.
+				label := nativeLinkCardHost(item)
+				if s.semanticState(item).LinkQR {
+					label = item.Text
+				}
+				nativeContentText(c, label).FontSize(nativeTextMeta).FontWeight(nativeWeightValue).Grow(1).MinWidth(0).SingleLine()
 			})
 		})
 	})

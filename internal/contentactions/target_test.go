@@ -22,7 +22,7 @@ func TestOpenTargetEmailCannotIntroduceHeaders(t *testing.T) {
 			t.Fatalf("recipient changed: %q", target.URL)
 		}
 	}
-	for _, value := range []string{"hello@example.com\r\nBcc:other@example.com", "hello@example.com?subject=hello", "mailto:hello@example.com?subject=hello", "Name <hello@example.com>"} {
+	for _, value := range []string{"hello@example.com\r\nBcc:other@example.com", "hello@example.com?subject=hello", "mailto:hello@example.com?subject=hello", "Name <hello@example.com> then mail"} {
 		if _, err := OpenTarget(value); !errors.Is(err, ErrUnsupported) {
 			t.Fatalf("unsupported mail value accepted: %q", value)
 		}
@@ -34,15 +34,21 @@ func TestOpenTargetOnlyAllowsRecognizedActions(t *testing.T) {
 	if err != nil || phone.URL != "tel:+12025550148" {
 		t.Fatalf("phone target: %+v %v", phone, err)
 	}
-	mapTarget, err := OpenTarget("31.2304,121.4737")
-	if err != nil {
-		t.Fatal(err)
+	for _, tc := range []struct{ input, point string }{
+		{"31.2304,121.4737", "31.2304,121.4737"},
+		{"-122.168861, 37.428230", "37.42823,-122.168861"},
+		{"37.428230, -122.168861", "37.42823,-122.168861"},
+	} {
+		mapTarget, err := OpenTarget(tc.input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		parsed, err := url.Parse(mapTarget.URL)
+		if err != nil || parsed.Scheme != "https" || parsed.Host != "maps.apple.com" || parsed.Query().Get("ll") != tc.point || len(parsed.Query()) != 1 {
+			t.Fatalf("map target for %q: %q", tc.input, mapTarget.URL)
+		}
 	}
-	parsed, err := url.Parse(mapTarget.URL)
-	if err != nil || parsed.Scheme != "https" || parsed.Host != "maps.apple.com" || parsed.Query().Get("ll") != "31.2304,121.4737" || len(parsed.Query()) != 1 {
-		t.Fatalf("map target: %q", mapTarget.URL)
-	}
-	for _, value := range []string{"91.0,121.0", "31.0,181.0", "31.0,121.0&secret=value", "NaN,121.0", "javascript:alert(1)", "https://example.com", "OTP: 123456", "1792645800123", "ordinary text"} {
+	for _, value := range []string{"91.0,121.0", "31.0,181.0", "31.0,121.0&secret=value", "NaN,121.0", "javascript:alert(1)", "OTP: 123456", "1792645800123", "ordinary text"} {
 		if _, err := OpenTarget(value); !errors.Is(err, ErrUnsupported) {
 			t.Fatalf("unsupported target accepted: %q", value)
 		}

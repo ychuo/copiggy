@@ -4,15 +4,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
-	"math"
-	"net/mail"
-	"net/url"
-	"path"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"copiggy/resources"
 )
@@ -23,6 +17,8 @@ import (
 // A single matching field is populated; unrecognized content remains TypeText.
 type Analysis struct {
 	Type        ContentType
+	Markdown    *MarkdownValue
+	Link        *LinkValue
 	Email       *EmailValue
 	Phone       *PhoneValue
 	Coordinates *CoordinatesValue
@@ -101,6 +97,9 @@ func AnalyzeInRegion(text, region string) Analysis {
 		}
 	}
 	if len(value) > 8192 || strings.ContainsAny(value, "\x00\r\n") {
+		if markdown := AnalyzeMarkdown(value); markdown != nil {
+			return Analysis{Type: TypeMarkdown, Markdown: markdown}
+		}
 		return plain
 	}
 	if secret := analyzeToken(value); secret != nil {
@@ -112,11 +111,11 @@ func AnalyzeInRegion(text, region string) Analysis {
 	if local := analyzeFilePath(value); local != nil {
 		return Analysis{Type: TypeFilePath, FilePath: local}
 	}
-	if !strings.ContainsAny(value, "\t ") {
-		if parsed, err := url.Parse(value); err == nil &&
-			(parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Hostname() != "" {
-			return Analysis{Type: TypeLink}
+	if link := ParseLink(value); link != nil {
+		if link.App {
+			return Analysis{Type: TypeAppLink, Link: link}
 		}
+		return Analysis{Type: TypeLink, Link: link}
 	}
 	if email := analyzeEmail(value); email != nil {
 		return Analysis{Type: TypeEmail, Email: email}
@@ -143,119 +142,10 @@ func AnalyzeInRegion(text, region string) Analysis {
 	if phone != nil {
 		return Analysis{Type: TypePhone, Phone: phone}
 	}
+	if markdown := AnalyzeMarkdown(value); markdown != nil {
+		return Analysis{Type: TypeMarkdown, Markdown: markdown}
+	}
 	return plain
-}
-
-func analyzeEmail(value string) *EmailValue {
-	if len(value) > 254 || strings.ContainsAny(value, "<>\"(),; \t") {
-		return nil
-	}
-	address, err := mail.ParseAddress(value)
-	if err != nil || address.Name != "" || address.Address != value {
-		return nil
-	}
-	local, domain, found := strings.Cut(value, "@")
-	if !found || len(local) > 64 || !strings.Contains(domain, ".") {
-		return nil
-	}
-	for _, label := range strings.Split(domain, ".") {
-		if label == "" || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
-			return nil
-		}
-		for _, ch := range label {
-			if !(unicode.IsLetter(ch) || unicode.IsDigit(ch) || ch == '-') {
-				return nil
-			}
-		}
-	}
-	return &EmailValue{Address: value, Local: local, Domain: strings.ToLower(domain)}
-}
-
-var coordinatePattern = regexp.MustCompile(`^([+-]?[0-9]{1,3}(?:\.[0-9]+)?)\s*,\s*([+-]?[0-9]{1,3}(?:\.[0-9]+)?)$`)
-
-func analyzeCoordinates(value string) *CoordinatesValue {
-	parts := coordinatePattern.FindStringSubmatch(value)
-	if parts == nil {
-		return nil
-	}
-	lat, errLat := strconv.ParseFloat(parts[1], 64)
-	lon, errLon := strconv.ParseFloat(parts[2], 64)
-	if errLat != nil || errLon != nil || math.Abs(lat) > 90 || math.Abs(lon) > 180 {
-		return nil
-	}
-	// Requiring decimal precision avoids turning ordinary pairs/counts into maps.
-	if !strings.Contains(parts[1], ".") || !strings.Contains(parts[2], ".") {
-		return nil
-	}
-	return &CoordinatesValue{Latitude: lat, Longitude: lon}
-}
-
-func analyzeDate(value string) *DateValue {
-	if len(value) < 10 || len(value) > 40 || value[4] != '-' || value[7] != '-' {
-		return nil
-	}
-	if len(value) >= 22 && (value[len(value)-6] == '+' || value[len(value)-6] == '-') {
-		offset := value[len(value)-5:]
-		hours, hErr := strconv.Atoi(offset[:2])
-		minutes, mErr := strconv.Atoi(offset[3:])
-		if offset[2] != ':' || hErr != nil || mErr != nil || hours > 23 || minutes > 59 {
-			return nil
-		}
-	}
-	if parsed, err := time.Parse(time.RFC3339Nano, value); err == nil && parsed.Year() >= 1900 && parsed.Year() <= 2199 {
-		return &DateValue{Time: parsed, HasTime: true, HasZone: true}
-	}
-	for _, layout := range []string{"2006-01-02", "2006-01-02 15:04", "2006-01-02 15:04:05", "2006-01-02T15:04", "2006-01-02T15:04:05"} {
-		// A zone-less value describes the fields the user copied, including
-		// times in a local DST gap. Do not infer a location and change them.
-		parsed, err := time.Parse(layout, value)
-		if err == nil && parsed.Year() >= 1900 && parsed.Year() <= 2199 {
-			return &DateValue{Time: parsed, HasTime: len(value) > 10}
-		}
-	}
-	return nil
-}
-
-func analyzeTimestamp(value string) *TimestampValue {
-	if (len(value) != 10 && len(value) != 13) || !asciiDigits(value) {
-		return nil
-	}
-	integer, err := strconv.ParseInt(value, 10, 64)
-	if err != nil {
-		return nil
-	}
-	unit, milliseconds := "s", integer*1000
-	if len(value) == 13 {
-		unit, milliseconds = "ms", integer
-	}
-	instant := time.UnixMilli(milliseconds).UTC()
-	// A fixed practical range avoids treating arbitrary IDs as dates. It never
-	// depends on today's date, so restoring history does not change its type.
-	if instant.Year() < 2000 || instant.Year() >= 2100 {
-		return nil
-	}
-	return &TimestampValue{Time: instant, Seconds: instant.Unix(), Milliseconds: milliseconds, Unit: unit}
-}
-
-func analyzeFilePath(value string) *FilePathValue {
-	homeRelative := strings.HasPrefix(value, "~/")
-	if strings.HasPrefix(value, "file:") {
-		parsed, err := url.Parse(value)
-		if err != nil || parsed.Scheme != "file" || parsed.User != nil || parsed.Opaque != "" ||
-			(parsed.Host != "" && parsed.Host != "localhost") || parsed.RawQuery != "" || parsed.Fragment != "" {
-			return nil
-		}
-		value = parsed.Path
-	}
-	if (!homeRelative && !strings.HasPrefix(value, "/")) || strings.HasPrefix(value, "//") ||
-		strings.ContainsAny(value, "\x00\r\n\t") || strings.Contains(value, "/../") || strings.HasSuffix(value, "/..") {
-		return nil
-	}
-	clean := path.Clean(value)
-	if clean == "/" || clean == "~" || clean == "." {
-		return nil
-	}
-	return &FilePathValue{Path: clean, Name: path.Base(clean), Dir: path.Dir(clean), Ext: path.Ext(clean), HomeRelative: homeRelative}
 }
 
 var otpPattern = func() *regexp.Regexp {
@@ -276,24 +166,49 @@ var otpPattern = func() *regexp.Regexp {
 			prefixes = append(prefixes, regexp.QuoteMeta(label))
 		}
 	}
-	return regexp.MustCompile(`(?i)^(?:` + strings.Join(prefixes, "|") + `)(?:\s*[:：=]\s*|\s+)([0-9]{4,8}|[0-9]{3} [0-9]{3})$`)
+	return regexp.MustCompile(`(?i)^(?:` + strings.Join(prefixes, "|") + `)(?:\s*[:：=]\s*|\s+)([0-9]{4,8}|[0-9]{2,4}[ -][0-9]{2,4})$`)
 }()
 var tokenPattern = regexp.MustCompile(`^(?:gh[pousr]_[A-Za-z0-9]{30,255}|github_pat_[A-Za-z0-9_]{40,255}|sk-(?:proj-|ant-api[0-9]+-)?[A-Za-z0-9_-]{20,255}|xox[baprs]-[A-Za-z0-9-]{20,255}|AKIA[A-Z0-9]{16})$`)
+var bearerTokenPattern = regexp.MustCompile(`(?i)^(?:Authorization:[ \t]*)?Bearer[ \t]+([^ \t]+)$`)
 
 func newSecret(kind, value string, length int) *SecretValue {
 	return &SecretValue{Kind: kind, Value: value, Length: length, Masked: strings.Repeat("•", min(length, 12))}
 }
 
 func analyzeOTP(value string) *SecretValue {
-	parts := otpPattern.FindStringSubmatch(value)
+	// Normalize only explicit code typography, never the saved representation
+	// or arbitrary prose. A recognized label is still required before the digits.
+	normalized := strings.Map(func(ch rune) rune {
+		switch {
+		case ch >= '\uff10' && ch <= '\uff19':
+			return '0' + ch - '\uff10'
+		}
+		switch ch {
+		case '\u00a0', '\u202f', '\u3000':
+			return ' '
+		case '\uff1d':
+			return '='
+		case '\uff0d', '\u2010', '\u2011':
+			return '-'
+		default:
+			return ch
+		}
+	}, value)
+	parts := otpPattern.FindStringSubmatch(normalized)
 	if parts == nil {
 		return nil
 	}
-	code := strings.ReplaceAll(parts[1], " ", "")
+	code := strings.NewReplacer(" ", "", "-", "").Replace(parts[1])
 	return newSecret("OTP", code, len(code))
 }
 
 func analyzeToken(value string) *SecretValue {
+	// A complete Bearer field is only a wrapper around an already recognized
+	// credential, not evidence that arbitrary strings are secrets. Preserve the
+	// wrapper in item.Text; use the parsed token only for masked presentation.
+	if parts := bearerTokenPattern.FindStringSubmatch(value); parts != nil {
+		value = parts[1]
+	}
 	if parts := strings.Split(value, "."); len(parts) == 3 && len(parts[2]) >= 16 {
 		header, headerErr := base64.RawURLEncoding.DecodeString(parts[0])
 		payload, payloadErr := base64.RawURLEncoding.DecodeString(parts[1])
@@ -323,7 +238,11 @@ func analyzeToken(value string) *SecretValue {
 }
 
 func analyzePrivateKey(value string) *SecretValue {
-	if !strings.HasPrefix(value, "-----BEGIN ") {
+	// pem.Decode can skip malformed leading blocks. Require a single pair of
+	// envelope lines so it cannot extract a later key from a larger value.
+	// Only count line-start markers; ordinary PEM headers remain supported.
+	if !strings.HasPrefix(value, "-----BEGIN ") || strings.Contains(value, "\n-----BEGIN ") ||
+		strings.Count(value, "\n-----END ") != 1 {
 		return nil
 	}
 	block, rest := pem.Decode([]byte(value))

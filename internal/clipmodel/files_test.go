@@ -71,6 +71,52 @@ func TestFileListsAreBoundedAndNeverKeepOnlyAValidSubset(t *testing.T) {
 	}
 }
 
+func TestMixedURIItemsNeverBecomeAPartialFileSelection(t *testing.T) {
+	for _, fileFormat := range []string{URIListFormat, FileListFormat} {
+		for _, nonFile := range []string{"https://example.com/a", "aweme://video/123", "not a URI", "file:///tmp/a\r\nhttps://example.com/b"} {
+			for _, fileFirst := range []bool{false, true} {
+				data := Representations{
+					{{Format: URIListFormat, Bytes: []byte(nonFile)}},
+					{{Format: fileFormat, Bytes: []byte("file:///tmp/b")}},
+				}
+				if fileFirst {
+					data[0], data[1] = data[1], data[0]
+				}
+				before := data.Clone()
+				files, err := FilesFromRepresentations(data)
+				if err != nil || len(files) != 0 {
+					t.Fatalf("mixed item selection kept a file subset: %+v, %v", files, err)
+				}
+				if _, err := ContentFromRepresentations(data); err == nil {
+					t.Fatal("URI-only mixed selection was partially captured")
+				}
+				if !reflect.DeepEqual(data, before) {
+					t.Fatal("rejecting a mixed URI selection changed its representations")
+				}
+				data[0] = append(data[0], Representation{Format: TextFormat, Bytes: []byte("Original mixed selection")})
+				content, err := ContentFromRepresentations(data)
+				if err != nil || content.Text != "Original mixed selection" {
+					t.Fatalf("mixed selection displaced the complete text fallback: %+v, %v", content, err)
+				}
+			}
+		}
+	}
+
+	// Independent text is an incidental representation, not a competing URI
+	// destination, and must not change ordinary Finder path behavior.
+	data := append(fileTestData(), []Representation{{Format: TextFormat, Bytes: []byte("Finder selection")}})
+	if files, err := FilesFromRepresentations(data); err != nil || len(files) != 2 {
+		t.Fatalf("incidental text displaced Finder file references: %+v, %v", files, err)
+	}
+	data = Representations{
+		{{Format: URIListFormat, Bytes: []byte("https://example.com/a")}},
+		{{Format: FileListFormat, Bytes: []byte("file://remote.example/b")}, {Format: TextFormat, Bytes: []byte("fallback")}},
+	}
+	if _, err := ContentFromRepresentations(data); err == nil {
+		t.Fatal("mixed URI selection bypassed declared file validation")
+	}
+}
+
 func TestLegacyFileHistoryMigratesValidatedMetadataToPaths(t *testing.T) {
 	data := fileTestData()
 	content, err := ContentFromRepresentations(data)

@@ -5,7 +5,10 @@ import (
 	"html"
 	"image"
 	"image/png"
+	"net/url"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Capture errors carry a catalog key; raw decoding/platform failures stay in logs.
@@ -76,7 +79,56 @@ func ContentFromRepresentations(data Representations) (Content, error) {
 	if htmlText != "" {
 		return textFallback()
 	}
+	if text, ok := clipboardURIListText(data); ok {
+		return Content{Type: Analyze(text).Type, Text: text, Fingerprint: fingerprint}, nil
+	}
 	return Content{}, ContentError("Unsupported clipboard content")
+}
+
+const maxClipboardURIEntries = 64
+
+// Some applications offer public.url/text/uri-list without plain text. Derive
+// presentation from the complete saved list, retaining every original byte for
+// copy and persistence. File lists have already been handled above; never take
+// only supported entries from a mixed or malformed list, or follow a destination.
+func clipboardURIListText(data Representations) (string, bool) {
+	for _, item := range data {
+		for _, rep := range item {
+			switch rep.Format {
+			case FileListFormat, NativeFileURLFormat, NativeFilenamesFormat:
+				// Complete file selections were handled before this fallback.
+				// Do not lose a separate file item while deriving only web/app
+				// destinations from the remaining URI-list representations.
+				return "", false
+			}
+		}
+	}
+	encoded, err := data.Read(URIListFormat)
+	if err != nil || len(encoded) == 0 || len(encoded) > 1<<20 || !utf8.Valid(encoded) || bytes.IndexByte(encoded, 0) >= 0 {
+		return "", false
+	}
+	var locations []string
+	for _, line := range strings.Split(strings.ReplaceAll(string(encoded), "\r\n", "\n"), "\n") {
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if len(line) > 8192 || strings.ContainsFunc(line, func(ch rune) bool { return unicode.IsSpace(ch) || unicode.IsControl(ch) }) {
+			return "", false
+		}
+		link := ParseLink(line)
+		if link == nil || link.Inferred || link.Title != "" || link.URL != line {
+			return "", false
+		}
+		location, err := url.Parse(link.URL)
+		if err != nil || location.User != nil {
+			return "", false
+		}
+		locations = append(locations, line)
+		if len(locations) > maxClipboardURIEntries {
+			return "", false
+		}
+	}
+	return strings.Join(locations, "\n"), len(locations) > 0
 }
 
 func clipboardImageHasVisiblePixels(img image.Image) bool {

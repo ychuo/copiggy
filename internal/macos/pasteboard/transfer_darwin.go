@@ -48,6 +48,7 @@ type transferWriter interface {
 	Flush() error
 	ReadFormat(transfer.Format) ([]byte, error)
 	ChangeCount() int64
+	UpdateURLAliases([]uriListAlias, int64) error
 }
 
 type nativeTransfer struct{ *Reader }
@@ -59,6 +60,10 @@ func (nativeTransfer) ReadFormat(format transfer.Format) ([]byte, error) {
 }
 
 func writeOwned(data transfer.Data, marker []byte, destination transferWriter) (int64, error) {
+	aliases, err := uriListAliases(data)
+	if err != nil {
+		return 0, err
+	}
 	marked, err := withWriteToken(data, marker)
 	if err != nil {
 		return 0, err
@@ -73,6 +78,15 @@ func writeOwned(data transfer.Data, marker []byte, destination transferWriter) (
 	got, err := destination.ReadFormat(writeToken)
 	if err != nil || string(got) != string(marker) || revision != destination.ChangeCount() {
 		return 0, ErrChanged
+	}
+	if len(aliases) > 0 {
+		if err := destination.UpdateURLAliases(aliases, revision); err != nil {
+			return 0, err
+		}
+		got, err = destination.ReadFormat(writeToken)
+		if err != nil || string(got) != string(marker) || revision != destination.ChangeCount() {
+			return 0, ErrChanged
+		}
 	}
 	return revision, nil
 }

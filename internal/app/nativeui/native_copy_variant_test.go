@@ -60,6 +60,12 @@ func TestPreviewReturnCopiesChosenFormatWithoutAddingHistory(t *testing.T) {
 		{"timestamp-ms", "1792645800", "1792645800000", []string{"Milliseconds"}},
 		{"timestamp-s", "1792645800123", "1792645800", []string{"Seconds"}},
 		{"timestamp-zone", "1792645800123", "1792645800123", []string{"Local time"}},
+		{"timestamp-unit-original", "1792645800123 ms", "1792645800123 ms", nil},
+		{"timestamp-unit-zone", "1792645800123 ms", "1792645800123 ms", []string{"Local time"}},
+		{"timestamp-unit-seconds", "1792645800123 ms", "1792645800", []string{"Seconds"}},
+		{"timestamp-unit-milliseconds", "1792645800 s", "1792645800000", []string{"Milliseconds"}},
+		{"email-wrapper-original", "Name <hello@example.com>", "Name <hello@example.com>", nil},
+		{"email-mailto-original", "mailto:hello@example.com", "mailto:hello@example.com", nil},
 		{"untouched-color", "  rgb(215,131,121)  ", "  rgb(215,131,121)  ", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

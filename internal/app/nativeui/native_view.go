@@ -324,7 +324,7 @@ func (s *application) nativeView(c *ui.Context) {
 func (s *application) nativeCard(c *ui.Context, index int, item clipmodel.Item, p nativeColors) {
 	state := s.nativeState()
 	analysis := clipmodel.Analysis{Type: item.Type}
-	if item.Type != clipmodel.TypeText && item.Type != clipmodel.TypeJSON && item.Type != clipmodel.TypeImage && item.Type != clipmodel.TypeLink {
+	if item.Type != clipmodel.TypeText && item.Type != clipmodel.TypeJSON && item.Type != clipmodel.TypeMarkdown && item.Type != clipmodel.TypeImage && item.Type != clipmodel.TypeLink {
 		analysis = clipmodel.AnalyzeItem(item)
 	}
 	bg, fg, meta := nativeCardPalette(item.Type, analysis, p)

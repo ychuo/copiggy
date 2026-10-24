@@ -13,10 +13,12 @@ import (
 type ContentType string
 
 const (
-	TypeText  ContentType = "text"
-	TypeJSON  ContentType = "json"
-	TypeLink  ContentType = "link"
-	TypeImage ContentType = "image"
+	TypeText     ContentType = "text"
+	TypeJSON     ContentType = "json"
+	TypeMarkdown ContentType = "markdown"
+	TypeLink     ContentType = "link"
+	TypeAppLink  ContentType = "app-link"
+	TypeImage    ContentType = "image"
 	// TypeFiles is retained only to decode and migrate older history records.
 	TypeFiles       ContentType = "files"
 	TypeEmail       ContentType = "email"
@@ -61,7 +63,7 @@ func normalizeContent(content Content) (Content, bool) {
 		return Content{}, false
 	}
 	switch content.Type {
-	case "", TypeText, TypeJSON, TypeLink, TypeEmail, TypePhone, TypeCoordinates,
+	case "", TypeText, TypeJSON, TypeMarkdown, TypeLink, TypeAppLink, TypeEmail, TypePhone, TypeCoordinates,
 		TypeDate, TypeTimestamp, TypeColor, TypeFilePath, TypeOTP, TypeToken, TypePrivateKey:
 		if content.Text == "" {
 			return Content{}, false

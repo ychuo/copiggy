@@ -32,7 +32,7 @@ func (s *application) syncNativePopover() {
 	if !ok {
 		return // ScrollIntoView will produce the selected card's next bounds.
 	}
-	width, height := nativeContentPreviewSize(item.Type)
+	width, height := s.nativeCurrentPreviewSize(item)
 	display := mygo.Screen.DisplayNearestPoint(mygo.Screen.CursorScreenPoint())
 	width, height = min(width, display.WorkArea.Width-48), min(height, display.WorkArea.Height-80)
 	if s.popover == nil {
@@ -111,12 +111,30 @@ func (s *application) syncNativePopover() {
 
 // Use the same content dimensions for the native host and headless layout
 // checks so compact surfaces are exercised at their actual available height.
+func (s *application) nativeCurrentPreviewSize(item clipmodel.Item) (int, int) {
+	if item.Type == clipmodel.TypeLink && s.semanticPreview.ItemID == item.ID && s.semanticPreview.LinkQR {
+		return nativeContentPreviewSize(clipmodel.TypeAppLink)
+	}
+	return nativeItemPreviewSize(item)
+}
+
+func nativeItemPreviewSize(item clipmodel.Item) (int, int) {
+	if item.Type == clipmodel.TypeLink {
+		if link := clipmodel.ParseLink(item.Text); link != nil && link.App {
+			return 520, 500
+		}
+	}
+	return nativeContentPreviewSize(item.Type)
+}
+
 func nativeContentPreviewSize(kind clipmodel.ContentType) (int, int) {
 	switch kind {
 	case clipmodel.TypeText:
 		return 520, nativeNotePreviewHeight
 	case clipmodel.TypeJSON:
 		return 520, nativeJSONPreviewHeight
+	case clipmodel.TypeMarkdown:
+		return 600, nativeMarkdownPreviewHeight
 	case clipmodel.TypeFilePath:
 		return 520, nativeFilePathPreviewHeight
 	case clipmodel.TypeOTP, clipmodel.TypeToken, clipmodel.TypePrivateKey:
@@ -131,6 +149,8 @@ func nativeContentPreviewSize(kind clipmodel.ContentType) (int, int) {
 		return 520, nativeTimestampPreviewHeight
 	case clipmodel.TypeImage:
 		return 520, nativeImagePreviewHeight
+	case clipmodel.TypeAppLink:
+		return 520, 500
 	case clipmodel.TypeLink:
 		return 720, 500
 	case clipmodel.TypeCoordinates:

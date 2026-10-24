@@ -164,6 +164,14 @@ func RestoreRecords(records []Record) (*Store, error) {
 			}
 		}
 		content, err := ContentFromRepresentations(record.Data)
+		if err != nil || content.Text != item.Text || item.Type == TypeFiles {
+			if legacy, ok := legacyMixedFileContent(item, record.Data); ok {
+				content, err = legacy, nil
+				if item.Type == TypeFiles {
+					item.Text, item.Type, item.Files = content.Text, content.Type, nil
+				}
+			}
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -189,6 +197,50 @@ func RestoreRecords(records []Record) (*Store, error) {
 		}
 	}
 	return model, nil
+}
+
+// Earlier versions could annotate only the file subset of a mixed, multi-item
+// URI selection. Keep that exact verified annotation readable in old history;
+// new captures reject unsupported mixed selections, and copying a restored
+// record uses all retained representations because it is no longer file-only.
+// Normal records never enter this compatibility path, including new mixed
+// records whose complete text fallback matches their saved annotation.
+func legacyMixedFileContent(item Item, data Representations) (Content, bool) {
+	if item.Image != nil {
+		return Content{}, false
+	}
+	fingerprint, err := data.Fingerprint()
+	if err != nil {
+		return Content{}, false
+	}
+	if files, err := FilesFromRepresentations(data); err != nil || len(files) != 0 {
+		return Content{}, false
+	}
+	var legacyFiles []FileReference
+	for _, representations := range data {
+		files, err := FilesFromRepresentations(Representations{representations})
+		if err != nil {
+			return Content{}, false
+		}
+		legacyFiles = append(legacyFiles, files...)
+	}
+	paths, err := FilePathsText(legacyFiles)
+	if err != nil || len(paths) > 1<<20 {
+		return Content{}, false
+	}
+	switch item.Type {
+	case TypeFiles:
+		if item.Text != fileNames(legacyFiles) || !slices.Equal(item.Files, legacyFiles) {
+			return Content{}, false
+		}
+	case TypeText, TypeFilePath, TypeMarkdown:
+		if item.Text != paths || len(item.Files) != 0 {
+			return Content{}, false
+		}
+	default:
+		return Content{}, false
+	}
+	return Content{Type: Analyze(paths).Type, Text: paths, Fingerprint: fingerprint}, true
 }
 
 // Retain applies one common count, byte and age policy. Pins are age/count

@@ -39,7 +39,11 @@ func Extract(rawURL string, copiedHTML []byte) Metadata {
 	if len(copiedHTML) == 0 || len(copiedHTML) > maxHTMLBytes {
 		return Metadata{}
 	}
-	target := normalizedURL(rawURL)
+	link := clipmodel.ParseLink(rawURL)
+	if link == nil || link.App {
+		return Metadata{}
+	}
+	target := normalizedURL(link.URL)
 	if target == "" {
 		return Metadata{}
 	}

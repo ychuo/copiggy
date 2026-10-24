@@ -15,11 +15,16 @@ func (s *application) nativePopoverView(c *ui.Context) {
 	if !ok {
 		return
 	}
+	if nativeLinkItemType(item.Type) {
+		s.prepareNativeLinkQR(item)
+	}
 	semantic := *s.semanticState(item)
 	// Async metadata updates do not change format controls or their identity.
 	// In particular, allocating its first slot must not remount the toolbar
 	// between pointer-down and the user's first format selection.
 	semantic.PhoneLocation = nil
+	semantic.QRCode = nil
+	semantic.QRTarget = ""
 	// Keep this focus target stable across selection, draft comparison and zoom.
 	// Only this native window binds PreviewFocus; the tray owns Focus separately.
 	root := ui.Column(c).Key("native-preview-surface").Fill().Focusable().AutoFocus().Bind(&state.PreviewFocus).Role(ui.RoleDialog).Label(s.tr("Content preview")).TextColor(p.text).Lang(s.currentLanguage())
@@ -95,8 +100,14 @@ func (s *application) nativePreviewContent(c *ui.Context, item clipmodel.Item, p
 	case clipmodel.TypeJSON:
 		s.nativeJSONPreview(c, item, p)
 		return
+	case clipmodel.TypeMarkdown:
+		s.nativeMarkdownPreview(c, item, p)
+		return
 	case clipmodel.TypeImage:
 		s.nativeImagePreview(c, item, p)
+		return
+	case clipmodel.TypeAppLink:
+		s.nativeAppLinkPreview(c, item, p)
 		return
 	case clipmodel.TypeLink:
 		s.nativeLinkPreview(c, item, p)
@@ -183,15 +194,17 @@ func (s *application) nativePreviewToolbar(c *ui.Context, item clipmodel.Item, p
 	ui.Row(c).Height(nativeControlSize).Gap(nativeToolbarGap).AlignItems(ui.Center).Children(func() {
 		if item.Type == clipmodel.TypeJSON {
 			s.nativeJSONActions(c, p)
+		} else if item.Type == clipmodel.TypeMarkdown {
+			s.nativeMarkdownActions(c, item, p)
 		} else if item.Type == clipmodel.TypeImage {
 			s.nativeImageActions(c, item, p)
-		} else if item.Type == clipmodel.TypeLink {
+		} else if nativeLinkItemType(item.Type) {
 			s.nativeLinkActions(c, item, p)
 		} else {
 			s.nativeSemanticActions(c, item, p)
 		}
 		ui.Spacer(c)
-		if item.Type == clipmodel.TypeLink {
+		if nativeLinkItemType(item.Type) {
 			s.nativeLinkOpenAction(c, item, p)
 		}
 		pinLabel, pinIcon := s.tr("Pin"), "PushPin"

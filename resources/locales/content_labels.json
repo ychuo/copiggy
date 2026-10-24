@@ -3,6 +3,9 @@
     "en": [
       "verification code",
       "security code",
+      "authentication code",
+      "2fa code",
+      "two-factor code",
       "one-time code",
       "one time code",
       "one-time password",
@@ -10,8 +13,8 @@
       "otp",
       "code"
     ],
-    "zh-Hans": ["验证码"],
-    "zh-Hant": ["驗證碼"],
-    "ja": ["認証コード"]
+    "zh-Hans": ["验证码", "校验码", "动态码", "一次性密码"],
+    "zh-Hant": ["驗證碼", "校驗碼", "動態碼", "一次性密碼"],
+    "ja": ["認証コード", "確認コード", "ワンタイムパスワード"]
   }
 }

@@ -112,7 +112,11 @@ func (f *Fetcher) Fetch(ctx context.Context, rawURL string) (Metadata, error) {
 }
 
 func metadataURL(raw string) (*url.URL, error) {
-	parsed, err := url.Parse(strings.TrimSpace(raw))
+	link := clipmodel.ParseLink(raw)
+	if link == nil || link.Inferred || link.App {
+		return nil, errors.New("unsupported metadata URL")
+	}
+	parsed, err := url.Parse(link.URL)
 	if err != nil || !validMetadataURL(parsed) {
 		return nil, errors.New("unsupported metadata URL")
 	}
