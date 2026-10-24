@@ -7,7 +7,7 @@
 <p align="center">A little home for what you copy.</p>
 
 <p align="center">
-  <strong>v0.1.1</strong> · macOS · Native UI
+  <strong>v0.1.2</strong> · macOS · Native UI
 </p>
 
 <p align="center">
@@ -23,9 +23,9 @@ https://github.com/user-attachments/assets/e6a9591b-a37d-471a-8280-169ee0c59fe0
 
 ## Features
 
-- **History at a glance.** Distinct cards for 14 content types, from text and images to maps, colors, dates and credentials. Source app icons, search and keyboard navigation stay consistent. Repeated copies with the same protection scope move to the front.
+- **History at a glance.** Distinct cards for 16 content types, including dedicated Markdown and App scheme cards alongside text, images, maps, colors, dates and credentials. Source app icons, search and keyboard navigation stay consistent. Repeated copies with the same protection scope move to the front.
 - **Copy with care.** Press **⌃⌘C** to bind a copy to its source app. While Paste Guard is on, standard keyboard paste is blocked in other apps.
-- **Preview and refine.** Read text, zoom images, browse pages, inspect colors and timestamps, or open an address in Mail, Maps or Finder. Preview JSON formatting before accepting it. The original clip stays intact.
+- **Preview and refine.** Read Markdown or its exact source, zoom images, browse pages, inspect colors and timestamps, or open an address in Mail, Maps or Finder. Generate link QR codes locally for your phone; switching between Page and QR keeps the loaded webpage within the same preview. Preview JSON formatting before accepting it. The original clip stays intact.
 - **Keep the useful bits.** Pin clips for easy access, delete what you no longer need, and choose how long to keep ordinary history.
 - **Made for your Mac.** System glass, native popovers, light and dark themes, and a little pig in the menu bar. English, 简体中文, 繁體中文 and 日本語 are built in.
 
@@ -53,6 +53,8 @@ Packages are locally signed and not notarized. A copy downloaded from someone el
 5. Paste where you need it with **⌘V**.
 
 Browsing, previewing and choosing a format leave the clipboard unchanged until you copy. Return uses the original unless you explicitly choose JSON formatting, a color format, a dialing number or a timestamp unit.
+
+Links also recognize bare domains such as `www.example.com` and App schemes such as `aweme://video/123`. App scheme previews start with a QR code and offer the exact link text; web links use Page / QR. QR and Markdown Reading / Source only change presentation, so copying keeps the original text and protection. See the [complete recognition rules](docs/recognition.md) for supported formats and limits.
 
 Finder file selections use the same preview as their full paths, and copying them from Copiggy writes path text (one path per line for multiple files). Recording alone leaves the system clipboard unchanged, so copying and pasting files directly in Finder still works.
 
@@ -82,8 +84,8 @@ Paste Guard helps prevent accidental keyboard paste. It does not stop other apps
 History and preferences stay on your Mac in `~/Library/Application Support/Copiggy/`. Language, theme, recording pause, retention and the Paste Guard preference are restored on restart.
 
 - **Retention:** 1 day, 7 days, 30 days (default), or Forever. Pins are exempt from age expiry. History is still bounded to 100 ordinary clips, 100 pins and 64 MiB of shared content.
-- **Local processing:** JSON formatting runs on your Mac. There are no cloud AI calls or bulk history uploads.
-- **Links:** visible public, unrestricted cards may fetch their saved page address, including path and query, to show a title and cover. These requests omit fragments, browser cookies, authentication and referrers, and run no scripts. Website icons still use only the site's origin. Opening a webpage preview uses a normal persistent WebKit session.
+- **Local processing:** content recognition, JSON formatting, Markdown reading and QR generation run on your Mac. Markdown never executes HTML, opens inline links or fetches images; QR generation never contacts a QR service. There are no cloud AI calls or bulk history uploads.
+- **Links:** visible, unrestricted explicit public HTTP(S) cards may fetch their saved page address, including path and query, to show a title and cover. These requests omit fragments, browser cookies, authentication and referrers, and run no scripts. Website icons still use only the site's origin. Inferred bare domains and App schemes do not trigger these background requests. Opening a webpage preview uses a normal persistent WebKit session; its page remains loaded while QR is shown and is released when the preview closes or changes records.
 - **Maps:** visible, unrestricted coordinate cards use Apple Maps snapshots. Protected coordinates stay local until you explicitly open Maps.
 
 See the [storage and network guide](docs/usage.md#storage-and-network-behavior) for details.
@@ -100,4 +102,6 @@ Built with Go and [MyGo](https://github.com/egoist/mygo). The panel and controls
 ```
 
 - [Usage and shortcuts](docs/usage.md)
+- [Recognition rules](docs/recognition.md)
+- [Changelog](CHANGELOG.md)
 - [Development and project structure](docs/development.md)
